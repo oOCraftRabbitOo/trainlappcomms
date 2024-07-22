@@ -10,8 +10,8 @@ pub enum ToServer {
         challenge_index: u64,
         image: truinlag::Jpeg,
     },
-    Complete(u64),
-    Catch(u64),
+    Complete(usize),
+    Catch(usize),
     RequestEverything,
     Ping(Option<String>),
 }
@@ -29,8 +29,10 @@ pub enum ToApp {
     Everything(Everything),
     LoginSuccessful(bool),
     Ping(Option<String>),
-    ToCatcher(Everything),
-    ToRunner(Everything),
+    BecomeCatcher(Everything),
+    BecomeRunner(Everything),
+    BecomeShutDown,
+    Location { team: usize, location: (f64, f64) },
 }
 
 #[derive(Serialize, Deserialize)]
