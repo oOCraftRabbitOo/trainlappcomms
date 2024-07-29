@@ -1,6 +1,7 @@
 use bincode;
 use futures::prelude::*;
 use tokio;
+use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
@@ -82,7 +83,7 @@ async fn broadcast_to_to_app(
     }
 }
 
-fn to_server_to_engine_command(to_server: ToServer) -> EngineCommand {
+fn to_server_to_engine_command(to_server: ToServer, session: u64, team_id: usize) -> EngineCommand {
     use ToServer::*;
     match to_server {
         Login(passphrase) => EngineCommand {
@@ -95,17 +96,17 @@ fn to_server_to_engine_command(to_server: ToServer) -> EngineCommand {
             image: _,
         } => todo!(),
         Complete(id) => EngineCommand {
-            session: todo!(),
+            session: Some(session),
             action: EngineAction::Complete {
-                completer: todo!(),
+                completer: team_id,
                 completed: id,
             },
         },
         Catch(caught) => EngineCommand {
-            session: todo!(),
+            session: Some(session),
             action: EngineAction::Catch {
-                catcher: todo!(),
-                caught: caught,
+                catcher: team_id,
+                caught,
             },
         },
         Ping(mayssage) => EngineCommand {
@@ -113,7 +114,7 @@ fn to_server_to_engine_command(to_server: ToServer) -> EngineCommand {
             action: EngineAction::Ping(mayssage),
         },
         RequestEverything => EngineCommand {
-            session: todo!(),
+            session: Some(session),
             action: EngineAction::GetState,
         },
     }
@@ -128,7 +129,20 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let (internal_tx, mut internal_rx) = mpsc::unbounded_channel();
     let internal_tx_2 = internal_tx.clone();
 
-    let player_id = loop {
+    // the following 56 lines are ugly as all hell, please help me
+    async fn login_successful(
+        tx: &mut FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
+        value: bool,
+    ) {
+        tx.send(
+            bincode::serialize(&trainlappcomms::ToApp::LoginSuccessful(value))
+                .unwrap()
+                .into(),
+        )
+        .await
+        .unwrap();
+    }
+    let (player_id, session, team_id) = loop {
         if let ToServer::Login(passphrase) = bincode::deserialize::<trainlappcomms::ToServer>(
             &transport_rx.next().await.unwrap().unwrap(),
         )
@@ -142,16 +156,32 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                 .await
                 .unwrap()
             {
-                ResponseAction::Player(id) => break id,
+                ResponseAction::Player(player) => {
+                    if let Some(session) = player.session {
+                        if let ResponseAction::SendState { teams, game: _ } = truin_tx
+                            .send(EngineCommand {
+                                session: Some(session),
+                                action: EngineAction::GetState,
+                            })
+                            .await
+                            .unwrap()
+                        {
+                            if let Some(team_id) = teams
+                                .iter()
+                                .position(|t| t.players.iter().any(|p| p.id == player.id))
+                            {
+                                login_successful(&mut transport_tx, true).await;
+                                break (player.id, session, team_id);
+                            }
+                            login_successful(&mut transport_tx, false).await;
+                        }
+                        login_successful(&mut transport_tx, false).await;
+                    } else {
+                        login_successful(&mut transport_tx, false).await;
+                    }
+                }
                 _ => {
-                    transport_tx
-                        .send(
-                            bincode::serialize(&trainlappcomms::ToApp::LoginSuccessful(false))
-                                .unwrap()
-                                .into(),
-                        )
-                        .await
-                        .unwrap();
+                    login_successful(&mut transport_tx, false).await;
                 }
             }
         }
@@ -162,7 +192,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         while let Some(message) = transport_rx.next().await {
             let message = message.unwrap();
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
-            let message = to_server_to_engine_command(message);
+            let message = to_server_to_engine_command(message, session, team_id);
             match truin_tx_2.send(message).await {
                 Ok(response) => {
                     if let Some(response) = response_to_to_app(response, player_id) {
@@ -205,8 +235,8 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
 #[tokio::main()]
 async fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("192.168.50.69:7878").await?;
-    println!("Server listening on port 7878");
+    let listener = TcpListener::bind("192.168.50.69:41314").await?;
+    println!("Server listening on port 41314");
 
     loop {
         let accepted = listener.accept().await;

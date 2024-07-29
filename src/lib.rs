@@ -2,6 +2,8 @@ use chrono;
 use serde::{Deserialize, Serialize};
 use truinlag;
 
+pub mod api;
+
 #[derive(Serialize, Deserialize)]
 pub enum ToServer {
     Login(String),
