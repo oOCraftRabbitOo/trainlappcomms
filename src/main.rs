@@ -64,7 +64,8 @@ async fn broadcast_to_to_app(
 ) -> ToApp {
     use BroadcastAction::*;
     match broadcast {
-        Catch { catcher, caught } => {
+        Location { team, location } => ToApp::Location { team, location },
+        Caught { catcher, caught } => {
             let everything = get_everything(player_id, truin_tx).await;
             if catcher.players.iter().any(|p| p.id == player_id) {
                 return ToApp::BecomeRunner(everything);
@@ -73,24 +74,35 @@ async fn broadcast_to_to_app(
             };
             ToApp::Everything(everything)
         }
-        Complete {
+        Completed {
             completer: _,
             completed: _,
         } => ToApp::Everything(get_everything(player_id, truin_tx).await),
-        Ping(mayssage) => ToApp::Ping(mayssage),
-        End => ToApp::BecomeShutDown,
-        Start => todo!(),
+        Pinged(mayssage) => ToApp::Ping(mayssage),
+        Ended => ToApp::BecomeShutDown,
+        Started => todo!(),
     }
 }
 
-fn to_server_to_engine_command(to_server: ToServer, session: u64, team_id: usize) -> EngineCommand {
+fn to_server_to_engine_command(
+    to_server: ToServer,
+    session: u64,
+    team_id: usize,
+    player_id: u64,
+) -> EngineCommand {
     use ToServer::*;
     match to_server {
         Login(passphrase) => EngineCommand {
             session: None,
             action: EngineAction::GetPlayerByPassphrase(passphrase),
         },
-        Location(location) => todo!(),
+        Location(location) => EngineCommand {
+            session: Some(session),
+            action: EngineAction::Location {
+                player: player_id,
+                location,
+            },
+        },
         AttachImage {
             challenge_index: _,
             image: _,
@@ -192,7 +204,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         while let Some(message) = transport_rx.next().await {
             let message = message.unwrap();
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
-            let message = to_server_to_engine_command(message, session, team_id);
+            let message = to_server_to_engine_command(message, session, team_id, player_id);
             match truin_tx_2.send(message).await {
                 Ok(response) => {
                     if let Some(response) = response_to_to_app(response, player_id) {
