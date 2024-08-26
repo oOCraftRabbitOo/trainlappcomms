@@ -1,5 +1,8 @@
 #![cfg(feature = "build-binary")]
 
+use std::intrinsics::simd::simd_with_exposed_provenance;
+use std::{eprintln, println};
+
 use bincode;
 use futures::prelude::*;
 use tokio;
@@ -204,8 +207,10 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let mut truin_tx_2 = truin_tx.clone();
     let app_receiver = async move {
         while let Some(message) = transport_rx.next().await {
+            println!("received message from app");
             let message = message.unwrap();
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
+            println!("message: {:?}", message);
             let message = to_server_to_engine_command(message, session, team_id, player_id);
             match truin_tx_2.send(message).await {
                 Ok(response) => {
@@ -216,6 +221,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                 Err(_) => break,
             }
         }
+        eprintln!("Stream returned None, client probably disconnected");
     };
 
     let app_sender = async move {
