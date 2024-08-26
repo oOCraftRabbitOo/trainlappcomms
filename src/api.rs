@@ -35,7 +35,7 @@ impl TrainlappcommsReceiver {
 }
 
 pub async fn connect() -> (TrainlappcommsReceiver, TrainlappcommsSender) {
-    let (rx, tx) = TcpStream::connect("nelio.space")
+    let (rx, tx) = TcpStream::connect("nelio.space:41314")
         .await
         .unwrap()
         .into_split();
