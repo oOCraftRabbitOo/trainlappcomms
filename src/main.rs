@@ -1,3 +1,5 @@
+#![cfg(feature = "build-binary")]
+
 use bincode;
 use futures::prelude::*;
 use tokio;
@@ -103,10 +105,10 @@ fn to_server_to_engine_command(
                 location,
             },
         },
-        AttachImage {
-            challenge_index: _,
-            image: _,
-        } => todo!(),
+        // AttachImage {
+        //     challenge_index: _,
+        //     image: _,
+        // } => todo!(),
         Complete(id) => EngineCommand {
             session: Some(session),
             action: EngineAction::Complete {
@@ -247,7 +249,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
 #[tokio::main()]
 async fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("192.168.50.69:41314").await?;
+    let listener = TcpListener::bind("192.168.1.117:41314").await?;
     println!("Server listening on port 41314");
 
     loop {
