@@ -1,5 +1,6 @@
 #![cfg(feature = "build-binary")]
 
+use core::panic;
 use std::eprintln;
 
 use bincode;
@@ -212,6 +213,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         team_id: usize,
         player_id: u64,
     ) -> Result<(), Box<dyn Error>> {
+        panic!("yeet");
         while let Some(message) = transport_rx.next().await {
             println!("received message from app");
             let message = message?;
@@ -245,6 +247,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         mut internal_rx: mpsc::UnboundedReceiver<ToApp>,
         mut transport_tx: FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
     ) -> Result<(), Box<dyn Error>> {
+        panic!("yeet2");
         loop {
             let message = internal_rx.recv().await.ok_or("fuck")?;
             transport_tx
@@ -262,6 +265,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         player_id: u64,
         mut truin_tx: api::SendConnection,
     ) -> Result<(), Box<dyn Error>> {
+        panic!("yeet3");
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
@@ -273,14 +277,14 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
     let truin_receiver = truin_receiver(truin_rx, internal_tx, player_id, truin_tx);
 
-    let err = tokio::select! {
-        err = app_sender => err,
-        err = app_receiver => err,
-        err = truin_receiver => err,
+    let res = tokio::select! {
+        res = app_sender => res,
+        res = app_receiver => res,
+        res = truin_receiver => res,
     };
-    match err {
+    match res {
         Ok(_) => println!("Client disconnected"),
-        Err(err) => eprintln!("error occurred: {}", err)
+        Err(err) => eprintln!("error occurred: {}", err),
     }
     Ok(())
 }
