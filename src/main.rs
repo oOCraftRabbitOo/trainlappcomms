@@ -167,13 +167,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let (player_id, session, team_id) = loop {
         println!("trying to receive message from app");
         if let ToServer::Login(passphrase) = bincode::deserialize::<trainlappcomms::ToServer>(
-            &loop {
-                match transport_rx.next().await {
-                    Some(data) => break data,
-                    None => println!("Retrying receiving"),
-                }
-            }
-            .unwrap(),
+            &transport_rx.next().await.unwrap().unwrap(),
         )
         .unwrap()
         {
