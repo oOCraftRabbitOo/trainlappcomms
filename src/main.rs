@@ -1,8 +1,5 @@
 #![cfg(feature = "build-binary")]
 
-use std::intrinsics::simd::simd_with_exposed_provenance;
-use std::{eprintln, println};
-
 use bincode;
 use futures::prelude::*;
 use tokio;
