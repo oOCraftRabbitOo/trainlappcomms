@@ -1,15 +1,14 @@
 use chrono;
 use serde::{Deserialize, Serialize};
-use truinlag;
 
 #[derive(Serialize, Deserialize)]
 pub enum ToServer {
     Login(String),
     Location((f64, f64)),
-    AttachImage {
-        challenge_index: u64,
-        image: truinlag::Jpeg,
-    },
+    // AttachImage {
+    //     challenge_index: u64,
+    //     image: truinlag::Jpeg,
+    // },
     Complete(usize),
     Catch(usize),
     RequestEverything,
@@ -44,7 +43,7 @@ pub enum State {
 
 #[derive(Serialize, Deserialize)]
 pub struct Team {
-    pub is_catcher: truinlag::TeamRole,
+    pub is_catcher: bool,
     pub name: String,
     pub id: usize,
     pub bounty: u64,
@@ -56,10 +55,11 @@ pub struct Team {
     pub location: (f64, f64),
 }
 
+#[cfg(feature = "build-binary")]
 impl From<truinlag::Team> for Team {
     fn from(value: truinlag::Team) -> Self {
         Self {
-            is_catcher: value.role,
+            is_catcher: matches!(value.role, truinlag::TeamRole::Catcher),
             name: value.name,
             id: value.id,
             bounty: value.bounty,
@@ -84,6 +84,7 @@ pub struct Challenge {
     // pub attached_images: Vec<String>,
 }
 
+#[cfg(feature = "build-binary")]
 impl From<truinlag::Challenge> for Challenge {
     fn from(challenge: truinlag::Challenge) -> Self {
         Challenge {
@@ -103,6 +104,7 @@ pub struct CompletedChallenge {
     // pub attached_images: Vec<String>,
 }
 
+#[cfg(feature = "build-binary")]
 impl From<truinlag::CompletedChallenge> for CompletedChallenge {
     fn from(value: truinlag::CompletedChallenge) -> Self {
         Self {
@@ -121,6 +123,7 @@ pub struct Player {
     // pub thumb_name: String,
 }
 
+#[cfg(feature = "build-binary")]
 impl From<truinlag::Player> for Player {
     fn from(value: truinlag::Player) -> Self {
         Self {

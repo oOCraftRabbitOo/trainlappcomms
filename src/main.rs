@@ -90,10 +90,10 @@ fn to_server_to_engine_command(to_server: ToServer) -> EngineCommand {
             action: EngineAction::GetPlayerByPassphrase(passphrase),
         },
         Location(location) => todo!(),
-        AttachImage {
-            challenge_index: _,
-            image: _,
-        } => todo!(),
+        // AttachImage {
+        //     challenge_index: _,
+        //     image: _,
+        // } => todo!(),
         Complete(id) => EngineCommand {
             session: todo!(),
             action: EngineAction::Complete {
