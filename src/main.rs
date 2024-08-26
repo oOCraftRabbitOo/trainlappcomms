@@ -3,10 +3,10 @@
 use std::eprintln;
 
 use bincode;
-use std::error::Error;
 use futures::prelude::*;
+use std::error::Error;
 use tokio;
-use tokio::net::tcp::OwnedWriteHalf;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
@@ -204,7 +204,14 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         }
     };
 
-    async fn app_receiver() -> Result<(), dyn Error> {
+    async fn app_receiver(
+        mut transport_rx: FramedRead<OwnedReadHalf, LengthDelimitedCodec>,
+        mut truin_tx_2: api::SendConnection,
+        internal_tx_2: mpsc::UnboundedSender<ToApp>,
+        session: u64,
+        team_id: usize,
+        player_id: u64,
+    ) -> Result<(), Box<dyn Error>> {
         while let Some(message) = transport_rx.next().await {
             println!("received message from app");
             let message = message?;
@@ -221,39 +228,60 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
             }
         }
         eprintln!("Stream returned None, client probably disconnected");
+        Ok(())
     }
 
     let mut truin_tx_2 = truin_tx.clone();
-    let app_receiver = app_receiver();
+    let app_receiver = app_receiver(
+        transport_rx,
+        truin_tx_2,
+        internal_tx_2,
+        session,
+        team_id,
+        player_id,
+    );
 
-    async fn app_sender() -> Result<(), dyn Error> {
+    async fn app_sender(
+        mut internal_rx: mpsc::UnboundedReceiver<ToApp>,
+        mut transport_tx: FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
+    ) -> Result<(), Box<dyn Error>> {
         loop {
-            let message = internal_rx.recv().await?;
+            let message = internal_rx.recv().await.ok_or("fuck")?;
             transport_tx
                 .send(bincode::serialize(&message)?.into())
                 .await?;
         }
+        Ok(())
     }
 
-    let app_sender = app_sender();
+    let app_sender = app_sender(internal_rx, transport_tx);
 
-    async fn truin_receiver() -> Result<(), dyn Error> {
+    async fn truin_receiver(
+        truin_rx: api::InactiveRecvConnection,
+        internal_tx: mpsc::UnboundedSender<ToApp>,
+        player_id: u64,
+        mut truin_tx: api::SendConnection,
+    ) -> Result<(), Box<dyn Error>> {
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
                 internal_tx.send(broadcast_to_to_app(message, player_id, &mut truin_tx).await)?
             }
         }
+        Ok(())
     }
 
-    let truin_receiver = truin_receiver();
+    let truin_receiver = truin_receiver(truin_rx, internal_tx, player_id, truin_tx);
 
     let err = tokio::select! {
         err = app_sender => err,
         err = app_receiver => err,
         err = truin_receiver => err,
     };
-    eprintln!("error occurred: {}", err);
+    match err {
+        Ok(_) => println!("Client disconnected"),
+        Err(err) => eprintln!("error occurred: {}", err)
+    }
     Ok(())
 }
 
