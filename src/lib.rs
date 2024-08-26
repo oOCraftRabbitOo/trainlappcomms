@@ -1,7 +1,9 @@
 use chrono;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+pub mod api;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ToServer {
     Login(String),
     Location((f64, f64)),
@@ -15,7 +17,7 @@ pub enum ToServer {
     Ping(Option<String>),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Everything {
     pub state: State,
     pub teams: Vec<Team>,
@@ -23,7 +25,7 @@ pub struct Everything {
     pub your_team: usize,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ToApp {
     Everything(Everything),
     LoginSuccessful(bool),
@@ -34,14 +36,14 @@ pub enum ToApp {
     Location { team: usize, location: (f64, f64) },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum State {
     GameNotRunning,
     Runner,
     Catcher,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Team {
     pub is_catcher: bool,
     pub name: String,
@@ -76,7 +78,7 @@ impl From<truinlag::Team> for Team {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Challenge {
     pub title: String,
     pub description: String,
@@ -95,7 +97,7 @@ impl From<truinlag::Challenge> for Challenge {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CompletedChallenge {
     pub title: String,
     pub description: String,
@@ -116,7 +118,7 @@ impl From<truinlag::CompletedChallenge> for CompletedChallenge {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Player {
     pub name: String,
     pub id: u64,
