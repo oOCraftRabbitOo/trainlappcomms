@@ -138,7 +138,8 @@ fn to_server_to_engine_command(
     }
 }
 
-async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
+async fn handle_client(stream: TcpStream) -> Result<(), Box<dyn Error>> {
+    panic!("yeet");
     let (tcp_rx, tcp_tx) = stream.into_split();
     let mut transport_rx = FramedRead::new(tcp_rx, LengthDelimitedCodec::new());
     let mut transport_tx = FramedWrite::new(tcp_tx, LengthDelimitedCodec::new());
