@@ -1,5 +1,7 @@
 #![cfg(feature = "build-binary")]
 
+use std::eprintln;
+
 use bincode;
 use futures::prelude::*;
 use tokio;
@@ -202,17 +204,17 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     };
 
     let mut truin_tx_2 = truin_tx.clone();
-    let app_receiver = async move {
+    let app_receiver = async move || -> Result<(), dyn Error> {
         while let Some(message) = transport_rx.next().await {
             println!("received message from app");
-            let message = message.unwrap();
+            let message = message?;
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
             println!("message: {:?}", message);
             let message = to_server_to_engine_command(message, session, team_id, player_id);
             match truin_tx_2.send(message).await {
                 Ok(response) => {
                     if let Some(response) = response_to_to_app(response, player_id) {
-                        internal_tx_2.send(response).unwrap()
+                        internal_tx_2.send(response)?
                     }
                 }
                 Err(_) => break,
@@ -221,32 +223,30 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         eprintln!("Stream returned None, client probably disconnected");
     };
 
-    let app_sender = async move {
+    let app_sender = async move || -> Result<(), dyn Error> {
         loop {
-            let message = internal_rx.recv().await.unwrap();
+            let message = internal_rx.recv().await?;
             transport_tx
-                .send(bincode::serialize(&message).unwrap().into())
-                .await
-                .unwrap();
+                .send(bincode::serialize(&message)?.into())
+                .await?;
         }
     };
 
-    let truin_receiver = async move {
+    let truin_receiver = async move || -> Result<(), dyn Error> {
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
-                internal_tx
-                    .send(broadcast_to_to_app(message, player_id, &mut truin_tx).await)
-                    .unwrap()
+                internal_tx.send(broadcast_to_to_app(message, player_id, &mut truin_tx).await)?
             }
         }
     };
 
-    tokio::select! {
-        _ = app_sender => (),
-        _ = app_receiver => (),
-        _ = truin_receiver => (),
+    let err = tokio::select! {
+        err = app_sender => err,
+        err = app_receiver => err,
+        err = truin_receiver => err,
     };
+    eprintln!("error occurred: {}", err);
     Ok(())
 }
 
