@@ -139,7 +139,6 @@ fn to_server_to_engine_command(
 }
 
 async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
-    panic!("yeeet");
     let (tcp_rx, tcp_tx) = stream.into_split();
     let mut transport_rx = FramedRead::new(tcp_rx, LengthDelimitedCodec::new());
     let mut transport_tx = FramedWrite::new(tcp_tx, LengthDelimitedCodec::new());
@@ -162,11 +161,13 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         .unwrap();
     }
     let (player_id, session, team_id) = loop {
+        println!("trying to receive message from app");
         if let ToServer::Login(passphrase) = bincode::deserialize::<trainlappcomms::ToServer>(
             &transport_rx.next().await.unwrap().unwrap(),
         )
         .unwrap()
         {
+            println!("received Login message from app");
             match truin_tx
                 .send(EngineCommand {
                     session: None,
@@ -203,6 +204,8 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                     login_successful(&mut transport_tx, false).await;
                 }
             }
+        } else {
+            println!("received message from app that wasn't Login");
         }
     };
 
@@ -214,7 +217,6 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         team_id: usize,
         player_id: u64,
     ) -> Result<(), Box<dyn Error>> {
-        panic!("yeet");
         while let Some(message) = transport_rx.next().await {
             println!("received message from app");
             let message = message?;
@@ -248,7 +250,6 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         mut internal_rx: mpsc::UnboundedReceiver<ToApp>,
         mut transport_tx: FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
     ) -> Result<(), Box<dyn Error>> {
-        panic!("yeet2");
         loop {
             let message = internal_rx.recv().await.ok_or("fuck")?;
             transport_tx
@@ -266,7 +267,6 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         player_id: u64,
         mut truin_tx: api::SendConnection,
     ) -> Result<(), Box<dyn Error>> {
-        panic!("yeet3");
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
