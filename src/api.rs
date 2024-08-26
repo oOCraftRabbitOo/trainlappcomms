@@ -35,7 +35,7 @@ impl TrainlappcommsReceiver {
                 .receiver
                 .next()
                 .await
-                .expect("couldn't receive message from server")
+                .expect("couldn't receive message from server, disconnected")
                 .expect("couldn't receive message from server"),
         )
         .expect("couldn't deserialise server message")
