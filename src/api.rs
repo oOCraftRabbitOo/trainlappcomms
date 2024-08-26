@@ -30,14 +30,22 @@ pub struct TrainlappcommsReceiver {
 
 impl TrainlappcommsReceiver {
     pub async fn recv(&mut self) -> Result<ToApp, ()> {
-        bincode::deserialize(&self.receiver.next().await.unwrap().unwrap()).unwrap()
+        bincode::deserialize(
+            &self
+                .receiver
+                .next()
+                .await
+                .expect("couldn't receive message from server")
+                .expect("couldn't receive message from server"),
+        )
+        .expect("couldn't deserialise server message")
     }
 }
 
 pub async fn connect() -> (TrainlappcommsReceiver, TrainlappcommsSender) {
     let (rx, tx) = TcpStream::connect("nelio.space:41314")
         .await
-        .unwrap()
+        .expect("couldn't establish connection to server :(")
         .into_split();
     (
         TrainlappcommsReceiver {
