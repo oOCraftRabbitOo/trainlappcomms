@@ -204,8 +204,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         }
     };
 
-    let mut truin_tx_2 = truin_tx.clone();
-    let app_receiver = async move || -> Result<(), dyn Error> {
+    async fn app_receiver() -> Result<(), dyn Error> {
         while let Some(message) = transport_rx.next().await {
             println!("received message from app");
             let message = message?;
@@ -222,25 +221,32 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
             }
         }
         eprintln!("Stream returned None, client probably disconnected");
-    };
+    }
 
-    let app_sender = async move || -> Result<(), dyn Error> {
+    let mut truin_tx_2 = truin_tx.clone();
+    let app_receiver = app_receiver();
+
+    async fn app_sender() -> Result<(), dyn Error> {
         loop {
             let message = internal_rx.recv().await?;
             transport_tx
                 .send(bincode::serialize(&message)?.into())
                 .await?;
         }
-    };
+    }
 
-    let truin_receiver = async move || -> Result<(), dyn Error> {
+    let app_sender = app_sender();
+
+    async fn truin_receiver() -> Result<(), dyn Error> {
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
                 internal_tx.send(broadcast_to_to_app(message, player_id, &mut truin_tx).await)?
             }
         }
-    };
+    }
+
+    let truin_receiver = truin_receiver();
 
     let err = tokio::select! {
         err = app_sender => err,
