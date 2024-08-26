@@ -139,7 +139,6 @@ fn to_server_to_engine_command(
 }
 
 async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
-    println!("handling client");
     let (tcp_rx, tcp_tx) = stream.into_split();
     let mut transport_rx = FramedRead::new(tcp_rx, LengthDelimitedCodec::new());
     let mut transport_tx = FramedWrite::new(tcp_tx, LengthDelimitedCodec::new());
@@ -147,8 +146,6 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let (mut truin_tx, truin_rx) = api::connect(None).await?;
     let (internal_tx, mut internal_rx) = mpsc::unbounded_channel();
     let internal_tx_2 = internal_tx.clone();
-
-    println!("created channels");
 
     // the following 56 lines are ugly as all hell, please help me
     async fn login_successful(
@@ -163,15 +160,13 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         .await
         .unwrap();
     }
-    println!("defined function");
     let (player_id, session, team_id) = loop {
-        println!("trying to receive message from app");
         if let ToServer::Login(passphrase) = bincode::deserialize::<trainlappcomms::ToServer>(
             &transport_rx.next().await.unwrap().unwrap(),
         )
         .unwrap()
         {
-            println!("received Login message from app");
+            println!("TLC: App trying to connect with passphrase {}", passphrase);
             match truin_tx
                 .send(EngineCommand {
                     session: None,
@@ -181,6 +176,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                 .unwrap()
             {
                 ResponseAction::Player(player) => {
+                    println!("TLC: Player {} found in database", player.name);
                     if let Some(session) = player.session {
                         if let ResponseAction::SendState { teams, game: _ } = truin_tx
                             .send(EngineCommand {
@@ -194,17 +190,25 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                                 .iter()
                                 .position(|t| t.players.iter().any(|p| p.id == player.id))
                             {
+                                println!(
+                                    "TLC: Player {} found in a team, login success",
+                                    player.name
+                                );
                                 login_successful(&mut transport_tx, true).await;
                                 break (player.id, session, team_id);
                             }
-                            login_successful(&mut transport_tx, false).await;
+                            println!("TLC: Player {} not found in a team", player.name);
+                            login_successful(&mut transport_tx, true).await; //TODO: CHANGE THIS TRUE BACK TO FALSE LATER FOR THE LOVE OF GOD
                         }
+                        println!("TLC: Couldn't get state from truinlag?!??!!");
                         login_successful(&mut transport_tx, false).await;
                     } else {
+                        println!("TLC: Player {} has no session", player.name);
                         login_successful(&mut transport_tx, false).await;
                     }
                 }
                 _ => {
+                    println!("TLC: Player not found or found multiple times");
                     login_successful(&mut transport_tx, false).await;
                 }
             }
