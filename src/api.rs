@@ -30,7 +30,7 @@ pub struct TrainlappcommsReceiver {
 
 impl TrainlappcommsReceiver {
     pub async fn recv(&mut self) -> Result<ToApp, ()> {
-        bincode::deserialize(
+        Ok(bincode::deserialize(
             &loop {
                 match self.receiver.next().await {
                     Some(data) => break data,
@@ -39,7 +39,7 @@ impl TrainlappcommsReceiver {
             }
             .expect("couldn't receive message from server"),
         )
-        .expect("couldn't deserialise server message")
+        .expect("couldn't deserialise server message"))
     }
 }
 
