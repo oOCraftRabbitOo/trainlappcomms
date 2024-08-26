@@ -249,7 +249,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
 #[tokio::main()]
 async fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("192.168.50.49:41314").await?;
+    let listener = TcpListener::bind("192.168.50.69:41314").await?;
     println!("Server listening on port 41314");
 
     loop {
