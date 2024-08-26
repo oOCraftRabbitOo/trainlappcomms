@@ -3,6 +3,7 @@
 use std::eprintln;
 
 use bincode;
+use std::error::Error;
 use futures::prelude::*;
 use tokio;
 use tokio::net::tcp::OwnedWriteHalf;
