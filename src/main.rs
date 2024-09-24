@@ -201,7 +201,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                             login_successful(&mut transport_tx, true).await; //TODO: CHANGE THIS TRUE BACK TO FALSE LATER FOR THE LOVE OF GOD
                         }
                         println!("TLC: Couldn't get state from truinlag?!??!!");
-                        login_successful(&mut transport_tx, false).await;
+                        login_successful(&mut transport_tx, true).await; //TODO: THIS ONE EVEN MORE FOR THE LOVER OF GOD
                     } else {
                         println!("TLC: Player {} has no session", player.name);
                         login_successful(&mut transport_tx, false).await;
