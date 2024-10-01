@@ -87,6 +87,18 @@ async fn broadcast_to_to_app(
         Pinged(mayssage) => ToApp::Ping(mayssage),
         Ended => ToApp::BecomeShutDown,
         Started => todo!(),
+        PlayerChangedTeam {
+            session: _,
+            player: _,
+            from_team: _,
+            to_team: _,
+        } => todo!(),
+        PlayerDeleted(_) => todo!(),
+        PlayerChangedSession {
+            player: _,
+            from_session: _,
+            to_session: _,
+        } => todo!(),
     }
 }
 
@@ -104,7 +116,7 @@ fn to_server_to_engine_command(
         },
         Location(location) => EngineCommand {
             session: Some(session),
-            action: EngineAction::Location {
+            action: EngineAction::SendLocation {
                 player: player_id,
                 location,
             },
@@ -300,7 +312,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
 #[tokio::main()]
 async fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("192.168.50.69:41314").await?;
+    let listener = TcpListener::bind("192.168.1.125:41314").await?;
     println!("Server listening on port 41314");
 
     loop {

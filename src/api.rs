@@ -43,7 +43,7 @@ impl TrainlappcommsReceiver {
 }
 
 pub async fn connect() -> (TrainlappcommsReceiver, TrainlappcommsSender) {
-    let (rx, tx) = TcpStream::connect("nelio.space:41314")
+    let (rx, tx) = TcpStream::connect("trainlag.ch:41314")
         .await
         .expect("couldn't establish connection to server :(")
         .into_split();
