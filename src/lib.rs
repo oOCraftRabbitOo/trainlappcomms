@@ -73,7 +73,9 @@ impl From<truinlag::Team> for Team {
                 .iter()
                 .map(|cc| cc.clone().into())
                 .collect(),
-            location: value.location,
+            location: value
+                .location
+                .unwrap_or((47.64984858748811, 8.570193667489143)),
         }
     }
 }

@@ -60,6 +60,10 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
                 your_team,
             }))
         }
+        SendGlobalState {
+            sessions: _,
+            players: _,
+        } => None,
     }
 }
 
