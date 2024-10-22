@@ -160,7 +160,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let mut transport_tx = FramedWrite::new(tcp_tx, LengthDelimitedCodec::new());
 
     let (mut truin_tx, truin_rx) = api::connect(None).await?;
-    let (internal_tx, mut internal_rx) = mpsc::unbounded_channel();
+    let (internal_tx, internal_rx) = mpsc::unbounded_channel();
     let internal_tx_2 = internal_tx.clone();
 
     // the following 56 lines are ugly as all hell, please help me
@@ -260,7 +260,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         Ok(())
     }
 
-    let mut truin_tx_2 = truin_tx.clone();
+    let truin_tx_2 = truin_tx.clone();
     let app_receiver = app_receiver(
         transport_rx,
         truin_tx_2,
@@ -280,7 +280,6 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                 .send(bincode::serialize(&message)?.into())
                 .await?;
         }
-        Ok(())
     }
 
     let app_sender = app_sender(internal_rx, transport_tx);
@@ -297,7 +296,6 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                 internal_tx.send(broadcast_to_to_app(message, player_id, &mut truin_tx).await)?
             }
         }
-        Ok(())
     }
 
     let truin_receiver = truin_receiver(truin_rx, internal_tx, player_id, truin_tx);
