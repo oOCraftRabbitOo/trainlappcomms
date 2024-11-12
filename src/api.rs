@@ -13,14 +13,18 @@ pub struct TrainlappcommsSender {
 }
 
 impl TrainlappcommsSender {
-    pub async fn send(&mut self, message: &ToServer) -> Result<(), ()> {
+    pub async fn send(&mut self, message: &ToServer) -> Result<(), Error> {
         match self
             .sender
-            .send(bincode::serialize(message).map_err(|_| ())?.into())
+            .send(
+                bincode::serialize(message)
+                    .map_err(|e| Error::new(ErrorKind::InvalidInput, e))?
+                    .into(),
+            )
             .await
         {
             Ok(_) => Ok(()),
-            Err(_) => Err(()),
+            Err(e) => Err(Error::new(ErrorKind::Other, e)),
         }
     }
 }
