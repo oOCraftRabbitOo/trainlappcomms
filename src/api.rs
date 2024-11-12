@@ -1,6 +1,7 @@
 use super::*;
 use bincode;
 use futures::{SinkExt, StreamExt};
+use std::io::{Error, ErrorKind};
 use tokio::net::{
     tcp::{OwnedReadHalf, OwnedWriteHalf},
     TcpStream,
@@ -29,16 +30,19 @@ pub struct TrainlappcommsReceiver {
 }
 
 impl TrainlappcommsReceiver {
-    pub async fn recv(&mut self) -> Result<ToApp, ()> {
-        Ok(bincode::deserialize(
-            &self
-                .receiver
-                .next()
-                .await
-                .expect("disconnected")
-                .expect("couldn't receive message from server"),
+    pub async fn recv(&mut self) -> Result<ToApp, Error> {
+        Ok(
+            bincode::deserialize(&self.receiver.next().await.ok_or(Error::new(
+                ErrorKind::ConnectionAborted,
+                "connection with trainlappcomms ended",
+            ))??)
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!("message from trainappcomms couldn't be decoded: {}", e),
+                )
+            })?,
         )
-        .expect("couldn't deserialise server message"))
     }
 }
 
