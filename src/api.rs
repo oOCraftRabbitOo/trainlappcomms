@@ -46,17 +46,14 @@ impl TrainlappcommsReceiver {
     }
 }
 
-pub async fn connect() -> (TrainlappcommsReceiver, TrainlappcommsSender) {
-    let (rx, tx) = TcpStream::connect("trainlag.ch:41314")
-        .await
-        .expect("couldn't establish connection to server :(")
-        .into_split();
-    (
+pub async fn connect() -> Result<(TrainlappcommsReceiver, TrainlappcommsSender), Error> {
+    let (rx, tx) = TcpStream::connect("trainlag.ch:41314").await?.into_split();
+    Ok((
         TrainlappcommsReceiver {
             receiver: FramedRead::new(rx, LengthDelimitedCodec::new()),
         },
         TrainlappcommsSender {
             sender: FramedWrite::new(tx, LengthDelimitedCodec::new()),
         },
-    )
+    ))
 }
