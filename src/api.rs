@@ -1,3 +1,6 @@
+#![warn(clippy::panic_in_result_fn)]
+#![warn(clippy::missing_panics_doc)]
+
 use super::*;
 use bincode;
 use futures::{SinkExt, StreamExt};

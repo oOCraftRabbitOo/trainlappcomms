@@ -241,20 +241,28 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         team_id: usize,
         player_id: u64,
     ) -> Result<(), Box<dyn Error>> {
+        let mut count: u64 = 0;
         while let Some(message) = transport_rx.next().await {
-            println!("received message from app");
+            println!("({}) received message from app", count);
             let message = message?;
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
-            println!("message: {:?}", message);
+            println!("({}) message: {:?}", count, message);
             let message = to_server_to_engine_command(message, session, team_id, player_id);
+            println!(
+                "({}) parsed message, sending to truinlag: {:?}",
+                count, message
+            );
             match truin_tx_2.send(message).await {
                 Ok(response) => {
+                    println!("({}) received answer from truinlag: {:?}", count, response);
                     if let Some(response) = response_to_to_app(response, player_id) {
+                        println!("({}) parsed message, sending to app: {:?}", count, response);
                         internal_tx_2.send(response)?
                     }
                 }
                 Err(_) => break,
             }
+            count += 1;
         }
         eprintln!("Stream returned None, client probably disconnected");
         Ok(())
