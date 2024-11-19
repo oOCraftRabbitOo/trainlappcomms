@@ -64,6 +64,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
             sessions: _,
             players: _,
         } => None,
+        SendRawChallenges(_) => None,
     }
 }
 
