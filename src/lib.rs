@@ -1,4 +1,3 @@
-use chrono;
 use serde::{Deserialize, Serialize};
 
 pub mod api;
@@ -53,6 +52,7 @@ pub struct Team {
     pub players: Vec<Player>,
     pub challenges: Vec<Challenge>,
     pub completed_challenges: Vec<CompletedChallenge>,
+    pub colour: (u8, u8, u8),
     // pub thumb_name: String,
     pub location: (f64, f64),
 }
@@ -61,6 +61,7 @@ pub struct Team {
 impl From<truinlag::Team> for Team {
     fn from(value: truinlag::Team) -> Self {
         Self {
+            colour: (value.colour.r, value.colour.g, value.colour.b),
             is_catcher: matches!(value.role, truinlag::TeamRole::Catcher),
             name: value.name,
             id: value.id,

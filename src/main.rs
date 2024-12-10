@@ -3,10 +3,8 @@
 use core::panic;
 use std::eprintln;
 
-use bincode;
 use futures::prelude::*;
 use std::error::Error;
-use tokio;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
@@ -44,7 +42,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
         SendState { teams, game } => {
             let your_team = teams
                 .iter()
-                .position(|t| t.players.iter().find(|p| p.id == player_id).is_some())
+                .position(|t| t.players.iter().any(|p| p.id == player_id))
                 .unwrap();
             let state = match game {
                 None => State::GameNotRunning,
@@ -75,6 +73,22 @@ async fn broadcast_to_to_app(
 ) -> Option<ToApp> {
     use BroadcastAction::*;
     match broadcast {
+        TeamMadeRunner(team) => {
+            if team.players.iter().any(|p| p.id == player_id) {
+                let everything = get_everything(player_id, truin_tx).await;
+                Some(ToApp::BecomeRunner(everything))
+            } else {
+                None
+            }
+        }
+        TeamMadeCatcher(team) => {
+            if team.players.iter().any(|p| p.id == player_id) {
+                let everything = get_everything(player_id, truin_tx).await;
+                Some(ToApp::BecomeCatcher(everything))
+            } else {
+                None
+            }
+        }
         Location { team, location } => Some(ToApp::Location { team, location }),
         Caught { catcher, caught } => {
             let everything = get_everything(player_id, truin_tx).await;
