@@ -72,25 +72,25 @@ async fn broadcast_to_to_app(
     broadcast: BroadcastAction,
     player_id: u64,
     truin_tx: &mut api::SendConnection,
-) -> ToApp {
+) -> Option<ToApp> {
     use BroadcastAction::*;
     match broadcast {
-        Location { team, location } => ToApp::Location { team, location },
+        Location { team, location } => Some(ToApp::Location { team, location }),
         Caught { catcher, caught } => {
             let everything = get_everything(player_id, truin_tx).await;
             if catcher.players.iter().any(|p| p.id == player_id) {
-                return ToApp::BecomeRunner(everything);
+                return Some(ToApp::BecomeRunner(everything));
             } else if caught.players.iter().any(|p| p.id == player_id) {
-                return ToApp::BecomeCatcher(everything);
+                return Some(ToApp::BecomeCatcher(everything));
             };
-            ToApp::Everything(everything)
+            Some(ToApp::Everything(everything))
         }
         Completed {
             completer: _,
             completed: _,
-        } => ToApp::Everything(get_everything(player_id, truin_tx).await),
-        Pinged(mayssage) => ToApp::Ping(mayssage),
-        Ended => ToApp::BecomeShutDown,
+        } => Some(ToApp::Everything(get_everything(player_id, truin_tx).await)),
+        Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
+        Ended => Some(ToApp::BecomeShutDown),
         Started => todo!(),
         PlayerChangedTeam {
             session: _,
@@ -104,6 +104,24 @@ async fn broadcast_to_to_app(
             from_session: _,
             to_session: _,
         } => todo!(),
+        TeamMadeRunner(team) => {
+            if team.players.iter().any(|p| p.id == player_id) {
+                Some(ToApp::BecomeRunner(
+                    get_everything(player_id, truin_tx).await,
+                ))
+            } else {
+                None
+            }
+        }
+        TeamMadeCatcher(team) => {
+            if team.players.iter().any(|p| p.id == player_id) {
+                Some(ToApp::BecomeCatcher(
+                    get_everything(player_id, truin_tx).await,
+                ))
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -302,7 +320,10 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
-                internal_tx.send(broadcast_to_to_app(message, player_id, &mut truin_tx).await)?
+                let to_app = broadcast_to_to_app(message, player_id, &mut truin_tx).await;
+                if let Some(to_app) = to_app {
+                    internal_tx.send(to_app)?
+                }
             }
         }
     }
