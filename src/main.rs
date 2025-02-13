@@ -14,11 +14,15 @@ use truinlag::api;
 use truinlag::commands::{BroadcastAction, EngineAction, EngineCommand, ResponseAction};
 use truinlag::TeamRole;
 
-async fn get_everything(player_id: u64, truin_tx: &mut api::SendConnection) -> Everything {
+async fn get_everything(
+    player_id: u64,
+    truin_tx: &mut api::SendConnection,
+    session: u64,
+) -> Everything {
     match response_to_to_app(
         truin_tx
             .send(EngineCommand {
-                session: None,
+                session: Some(session),
                 action: EngineAction::GetState,
             })
             .await
@@ -63,6 +67,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
             players: _,
         } => None,
         SendRawChallenges(_) => None,
+        SendChallengeSets(_) => None,
     }
 }
 
@@ -70,12 +75,13 @@ async fn broadcast_to_to_app(
     broadcast: BroadcastAction,
     player_id: u64,
     truin_tx: &mut api::SendConnection,
+    session: u64,
 ) -> Option<ToApp> {
     use BroadcastAction::*;
     match broadcast {
         TeamMadeRunner(team) => {
             if team.players.iter().any(|p| p.id == player_id) {
-                let everything = get_everything(player_id, truin_tx).await;
+                let everything = get_everything(player_id, truin_tx, session).await;
                 Some(ToApp::BecomeRunner(everything))
             } else {
                 None
@@ -83,7 +89,7 @@ async fn broadcast_to_to_app(
         }
         TeamMadeCatcher(team) => {
             if team.players.iter().any(|p| p.id == player_id) {
-                let everything = get_everything(player_id, truin_tx).await;
+                let everything = get_everything(player_id, truin_tx, session).await;
                 Some(ToApp::BecomeCatcher(everything))
             } else {
                 None
@@ -91,7 +97,7 @@ async fn broadcast_to_to_app(
         }
         Location { team, location } => Some(ToApp::Location { team, location }),
         Caught { catcher, caught } => {
-            let everything = get_everything(player_id, truin_tx).await;
+            let everything = get_everything(player_id, truin_tx, session).await;
             if catcher.players.iter().any(|p| p.id == player_id) {
                 return Some(ToApp::BecomeRunner(everything));
             } else if caught.players.iter().any(|p| p.id == player_id) {
@@ -102,7 +108,9 @@ async fn broadcast_to_to_app(
         Completed {
             completer: _,
             completed: _,
-        } => Some(ToApp::Everything(get_everything(player_id, truin_tx).await)),
+        } => Some(ToApp::Everything(
+            get_everything(player_id, truin_tx, session).await,
+        )),
         Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
         Ended => Some(ToApp::BecomeShutDown),
         Started => todo!(),
@@ -121,7 +129,7 @@ async fn broadcast_to_to_app(
         TeamMadeRunner(team) => {
             if team.players.iter().any(|p| p.id == player_id) {
                 Some(ToApp::BecomeRunner(
-                    get_everything(player_id, truin_tx).await,
+                    get_everything(player_id, truin_tx, session).await,
                 ))
             } else {
                 None
@@ -130,7 +138,7 @@ async fn broadcast_to_to_app(
         TeamMadeCatcher(team) => {
             if team.players.iter().any(|p| p.id == player_id) {
                 Some(ToApp::BecomeCatcher(
-                    get_everything(player_id, truin_tx).await,
+                    get_everything(player_id, truin_tx, session).await,
                 ))
             } else {
                 None
@@ -279,17 +287,18 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
             println!("({}) received message from app", count);
             let message = message?;
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
-            println!("({}) message: {:?}", count, message);
+            //println!("({}) message: {:?}", count, message);
             let message = to_server_to_engine_command(message, session, team_id, player_id);
-            println!(
-                "({}) parsed message, sending to truinlag: {:?}",
-                count, message
-            );
+            // println!(
+            //     "({}) parsed message, sending to truinlag: {:?}",
+            //     count,
+            //     message
+            // );
             match truin_tx_2.send(message).await {
                 Ok(response) => {
-                    println!("({}) received answer from truinlag: {:?}", count, response);
+                    //println!("({}) received answer from truinlag: {:?}", count, response);
                     if let Some(response) = response_to_to_app(response, player_id) {
-                        println!("({}) parsed message, sending to app: {:?}", count, response);
+                        //println!("({}) parsed message, sending to app: {:?}", count, response);
                         internal_tx_2.send(response)?
                     }
                 }
@@ -330,11 +339,12 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         internal_tx: mpsc::UnboundedSender<ToApp>,
         player_id: u64,
         mut truin_tx: api::SendConnection,
+        session: u64,
     ) -> Result<(), Box<dyn Error>> {
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
-                let to_app = broadcast_to_to_app(message, player_id, &mut truin_tx).await;
+                let to_app = broadcast_to_to_app(message, player_id, &mut truin_tx, session).await;
                 if let Some(to_app) = to_app {
                     internal_tx.send(to_app)?
                 }
@@ -342,7 +352,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         }
     }
 
-    let truin_receiver = truin_receiver(truin_rx, internal_tx, player_id, truin_tx);
+    let truin_receiver = truin_receiver(truin_rx, internal_tx, player_id, truin_tx, session);
 
     let res = tokio::select! {
         res = app_sender => res,
