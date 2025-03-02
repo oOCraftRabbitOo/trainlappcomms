@@ -1,3 +1,4 @@
+use chrono::Timelike;
 use serde::{Deserialize, Serialize};
 
 pub mod api;
@@ -42,12 +43,12 @@ pub enum Event {
         catcher_id: usize,
         caught_id: usize,
         bounty: u64,
-        time: chrono::NaiveTime,
+        time: u32,
     },
     Complete {
         challenge: Challenge,
         completer_id: usize,
-        time: chrono::NaiveTime,
+        time: u32,
     },
 }
 
@@ -62,7 +63,7 @@ impl From<truinlag::Event> for Event {
             } => Event::Complete {
                 challenge: challenge.into(),
                 completer_id,
-                time,
+                time: time.num_seconds_from_midnight(),
             },
             truinlag::Event::Catch {
                 catcher_id,
@@ -73,7 +74,7 @@ impl From<truinlag::Event> for Event {
                 catcher_id,
                 caught_id,
                 bounty,
-                time,
+                time: time.num_seconds_from_midnight(),
             },
         }
     }
