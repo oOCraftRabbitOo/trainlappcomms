@@ -39,7 +39,7 @@ pub enum ToApp {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Event {
-    Catch {
+    CatchTeam {
         catcher_id: usize,
         caught_id: usize,
         bounty: u64,
