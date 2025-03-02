@@ -77,6 +77,7 @@ async fn broadcast_to_to_app(
     player_id: u64,
     truin_tx: &mut api::SendConnection,
     session: u64,
+    team_id: usize,
 ) -> Option<ToApp> {
     use BroadcastAction::*;
     match broadcast {
@@ -99,9 +100,9 @@ async fn broadcast_to_to_app(
         Location { team, location } => Some(ToApp::Location { team, location }),
         Caught { catcher, caught } => {
             let everything = get_everything(player_id, truin_tx, session).await;
-            if catcher.players.iter().any(|p| p.id == player_id) {
+            if catcher.id == team_id {
                 return Some(ToApp::BecomeRunner(everything));
-            } else if caught.players.iter().any(|p| p.id == player_id) {
+            } else if caught.id == team_id {
                 return Some(ToApp::BecomeCatcher(everything));
             };
             Some(ToApp::Everything(everything))
@@ -341,11 +342,13 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         player_id: u64,
         mut truin_tx: api::SendConnection,
         session: u64,
+        team_id: usize,
     ) -> Result<(), Box<dyn Error>> {
         let mut truin_rx = truin_rx.activate().await;
         loop {
             if let Some(message) = truin_rx.recv().await {
-                let to_app = broadcast_to_to_app(message, player_id, &mut truin_tx, session).await;
+                let to_app =
+                    broadcast_to_to_app(message, player_id, &mut truin_tx, session, team_id).await;
                 if let Some(to_app) = to_app {
                     internal_tx.send(to_app)?
                 }
@@ -353,7 +356,8 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         }
     }
 
-    let truin_receiver = truin_receiver(truin_rx, internal_tx, player_id, truin_tx, session);
+    let truin_receiver =
+        truin_receiver(truin_rx, internal_tx, player_id, truin_tx, session, team_id);
 
     let res = tokio::select! {
         res = app_sender => res,
