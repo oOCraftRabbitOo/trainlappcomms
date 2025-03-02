@@ -39,7 +39,10 @@ async fn get_everything(
 fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp> {
     use ResponseAction::*;
     match response {
-        Error(_) => None,
+        Error(err) => {
+            eprintln!("{}", err);
+            None
+        }
         Team(_) => None,
         Player(_) => None,
         Success => None,
@@ -90,7 +93,7 @@ async fn broadcast_to_to_app(
             }
         }
         TeamMadeCatcher(team) => {
-            if team.players.iter().any(|p| p.id == player_id) {
+            if team.id == team_id {
                 let everything = get_everything(player_id, truin_tx, session).await;
                 Some(ToApp::BecomeCatcher(everything))
             } else {
@@ -108,11 +111,16 @@ async fn broadcast_to_to_app(
             Some(ToApp::Everything(everything))
         }
         Completed {
-            completer: _,
+            completer,
             completed: _,
-        } => Some(ToApp::Everything(
-            get_everything(player_id, truin_tx, session).await,
-        )),
+        } => {
+            let everything = get_everything(player_id, truin_tx, session).await;
+            if completer.id == team_id {
+                Some(ToApp::BecomeRunner(everything))
+            } else {
+                Some(ToApp::Everything(everything))
+            }
+        }
         Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
         Ended => Some(ToApp::BecomeShutDown),
         Started => todo!(),
