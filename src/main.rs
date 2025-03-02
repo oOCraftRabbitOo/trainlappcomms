@@ -46,7 +46,11 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
         Team(_) => None,
         Player(_) => None,
         Success => None,
-        SendState { teams, game } => {
+        SendState {
+            teams,
+            events,
+            game,
+        } => {
             let your_team = teams
                 .iter()
                 .position(|t| t.players.iter().any(|p| p.id == player_id))
@@ -61,6 +65,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
             Some(ToApp::Everything(Everything {
                 state,
                 teams: teams.into_iter().map(|t| t.into()).collect(),
+                events: events.into_iter().map(|e| e.into()).collect(),
                 you: player_id,
                 your_team,
             }))
@@ -72,6 +77,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
         SendRawChallenges(_) => None,
         SendChallengeSets(_) => None,
         SendZones(_) => None,
+        SendEvents(_) => None,
     }
 }
 
@@ -245,7 +251,11 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
                 ResponseAction::Player(player) => {
                     println!("TLC: Player {} found in database", player.name);
                     if let Some(session) = player.session {
-                        if let ResponseAction::SendState { teams, game: _ } = truin_tx
+                        if let ResponseAction::SendState {
+                            teams,
+                            events: _,
+                            game: _,
+                        } = truin_tx
                             .send(EngineCommand {
                                 session: Some(session),
                                 action: EngineAction::GetState,

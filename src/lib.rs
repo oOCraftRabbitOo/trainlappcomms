@@ -20,6 +20,7 @@ pub enum ToServer {
 pub struct Everything {
     pub state: State,
     pub teams: Vec<Team>,
+    pub events: Vec<Event>,
     pub you: u64,
     pub your_team: usize,
 }
@@ -33,6 +34,49 @@ pub enum ToApp {
     BecomeRunner(Everything),
     BecomeShutDown,
     Location { team: usize, location: (f64, f64) },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum Event {
+    Catch {
+        catcher_id: usize,
+        caught_id: usize,
+        bounty: u64,
+        time: chrono::NaiveTime,
+    },
+    Complete {
+        challenge: Challenge,
+        completer_id: usize,
+        time: chrono::NaiveTime,
+    },
+}
+
+#[cfg(feature = "build-binary")]
+impl From<truinlag::Event> for Event {
+    fn from(value: truinlag::Event) -> Self {
+        match value {
+            truinlag::Event::Complete {
+                challenge,
+                completer_id,
+                time,
+            } => Event::Complete {
+                challenge: challenge.into(),
+                completer_id,
+                time,
+            },
+            truinlag::Event::Catch {
+                catcher_id,
+                caught_id,
+                bounty,
+                time,
+            } => Event::Catch {
+                catcher_id,
+                caught_id,
+                bounty,
+                time,
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
