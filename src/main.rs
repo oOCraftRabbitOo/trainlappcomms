@@ -68,6 +68,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
         } => None,
         SendRawChallenges(_) => None,
         SendChallengeSets(_) => None,
+        SendZones(_) => None,
     }
 }
 

@@ -38,18 +38,16 @@ pub struct TrainlappcommsReceiver {
 
 impl TrainlappcommsReceiver {
     pub async fn recv(&mut self) -> Result<ToApp, Error> {
-        Ok(
-            bincode::deserialize(&self.receiver.next().await.ok_or(Error::new(
-                ErrorKind::ConnectionAborted,
-                "connection with trainlappcomms ended",
-            ))??)
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("message from trainappcomms couldn't be decoded: {}", e),
-                )
-            })?,
-        )
+        bincode::deserialize(&self.receiver.next().await.ok_or(Error::new(
+            ErrorKind::ConnectionAborted,
+            "connection with trainlappcomms ended",
+        ))??)
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("message from trainappcomms couldn't be decoded: {}", e),
+            )
+        })
     }
 }
 
