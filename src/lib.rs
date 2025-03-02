@@ -70,7 +70,7 @@ impl From<truinlag::Event> for Event {
                 caught_id,
                 bounty,
                 time,
-            } => Event::Catch {
+            } => Event::CatchTeam {
                 catcher_id,
                 caught_id,
                 bounty,
