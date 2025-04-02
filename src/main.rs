@@ -78,6 +78,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
         SendChallengeSets(_) => None,
         SendZones(_) => None,
         SendEvents(_) => None,
+        UploadedPictures(_) => None,
     }
 }
 

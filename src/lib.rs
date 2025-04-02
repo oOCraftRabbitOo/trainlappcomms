@@ -100,6 +100,7 @@ pub struct Team {
     pub colour: (u8, u8, u8),
     // pub thumb_name: String,
     pub location: (f64, f64),
+    pub in_grace_period: bool,
 }
 
 #[cfg(feature = "build-binary")]
@@ -122,6 +123,7 @@ impl From<truinlag::Team> for Team {
             location: value
                 .location
                 .unwrap_or((47.64984858748811, 8.570193667489143)),
+            in_grace_period: value.in_grace_period,
         }
     }
 }
