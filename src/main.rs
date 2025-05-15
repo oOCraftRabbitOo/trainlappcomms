@@ -1,8 +1,5 @@
 #![cfg(feature = "build-binary")]
 
-use core::panic;
-use std::eprintln;
-
 use futures::prelude::*;
 use std::error::Error;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -10,9 +7,9 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use trainlappcomms::*;
-use truinlag::api;
 use truinlag::commands::{BroadcastAction, EngineAction, EngineCommand, ResponseAction};
 use truinlag::TeamRole;
+use truinlag::{api, RawPicture};
 
 async fn get_everything(
     player_id: u64,
@@ -79,6 +76,10 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
         SendZones(_) => None,
         SendEvents(_) => None,
         UploadedPictures(_) => None,
+        Period(id) => Some(ToApp::AddedPeriod(id)),
+        Pictures(pics) => Some(ToApp::Pictures(
+            pics.into_iter().map(|p| p.into()).collect(),
+        )),
     }
 }
 
@@ -130,37 +131,7 @@ async fn broadcast_to_to_app(
         }
         Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
         Ended => Some(ToApp::BecomeShutDown),
-        Started => todo!(),
-        PlayerChangedTeam {
-            session: _,
-            player: _,
-            from_team: _,
-            to_team: _,
-        } => todo!(),
-        PlayerDeleted(_) => todo!(),
-        PlayerChangedSession {
-            player: _,
-            from_session: _,
-            to_session: _,
-        } => todo!(),
-        TeamMadeRunner(team) => {
-            if team.players.iter().any(|p| p.id == player_id) {
-                Some(ToApp::BecomeRunner(
-                    get_everything(player_id, truin_tx, session).await,
-                ))
-            } else {
-                None
-            }
-        }
-        TeamMadeCatcher(team) => {
-            if team.players.iter().any(|p| p.id == player_id) {
-                Some(ToApp::BecomeCatcher(
-                    get_everything(player_id, truin_tx, session).await,
-                ))
-            } else {
-                None
-            }
-        }
+        _ => todo!(),
     }
 }
 
@@ -183,10 +154,31 @@ fn to_server_to_engine_command(
                 location,
             },
         },
-        // AttachImage {
-        //     challenge_index: _,
-        //     image: _,
-        // } => todo!(),
+        AttachPeriodPictures { event_id, pictures } => EngineCommand {
+            session: Some(session),
+            action: EngineAction::UploadPeriodPictures {
+                pictures: pictures
+                    .into_iter()
+                    .filter_map(|p| RawPicture::from_bytes(p).ok())
+                    .collect(),
+                team: team_id,
+                period: event_id,
+            },
+        },
+        UploadPlayerPicture(picture) => EngineCommand {
+            session: None,
+            action: EngineAction::UploadPlayerPicture {
+                player_id,
+                picture: RawPicture::from_bytes(picture).unwrap(),
+            },
+        },
+        UploadTeamPicture(picture) => EngineCommand {
+            session: Some(session),
+            action: EngineAction::UploadTeamPicture {
+                team_id,
+                picture: RawPicture::from_bytes(picture).unwrap(),
+            },
+        },
         Complete(id) => EngineCommand {
             session: Some(session),
             action: EngineAction::Complete {
@@ -208,6 +200,14 @@ fn to_server_to_engine_command(
         RequestEverything => EngineCommand {
             session: Some(session),
             action: EngineAction::GetState,
+        },
+        RequestPictures(pictures) => EngineCommand {
+            session: None,
+            action: EngineAction::GetPictures(pictures),
+        },
+        RequestThumbnails(thumbnails) => EngineCommand {
+            session: None,
+            action: EngineAction::GetThumbnails(thumbnails),
         },
     }
 }

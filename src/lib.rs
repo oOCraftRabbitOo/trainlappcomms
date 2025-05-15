@@ -7,14 +7,24 @@ pub mod api;
 pub enum ToServer {
     Login(String),
     Location((f64, f64)),
-    // AttachImage {
-    //     challenge_index: u64,
-    //     image: truinlag::Jpeg,
-    // },
+    AttachPeriodPictures {
+        event_id: usize,
+        pictures: Vec<Vec<u8>>,
+    },
+    UploadPlayerPicture(Vec<u8>),
+    UploadTeamPicture(Vec<u8>),
     Complete(usize),
     Catch(usize),
     RequestEverything,
     Ping(Option<String>),
+    RequestPictures(Vec<u64>),
+    RequestThumbnails(Vec<u64>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ToServerPackage {
+    contents: ToServer,
+    id: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -35,6 +45,14 @@ pub enum ToApp {
     BecomeRunner(Everything),
     BecomeShutDown,
     Location { team: usize, location: (f64, f64) },
+    AddedPeriod(usize),
+    Pictures(Vec<JuhuiPicture>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ToAppPackage {
+    contents: ToApp,
+    id: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -81,6 +99,24 @@ impl From<truinlag::Event> for Event {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JuhuiPicture {
+    data: Vec<u8>,
+    is_thumbnail: bool,
+    id: u64,
+}
+
+#[cfg(feature = "build-binary")]
+impl From<truinlag::Picture> for JuhuiPicture {
+    fn from(value: truinlag::Picture) -> Self {
+        JuhuiPicture {
+            data: value.data.get_bytes(),
+            is_thumbnail: value.is_thumbnail,
+            id: value.id,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum State {
     GameNotRunning,
     Runner,
@@ -91,6 +127,7 @@ pub enum State {
 pub struct Team {
     pub is_catcher: bool,
     pub name: String,
+    pub picture_id: Option<u64>,
     pub id: usize,
     pub bounty: u64,
     pub points: u64,
@@ -98,7 +135,6 @@ pub struct Team {
     pub challenges: Vec<Challenge>,
     pub completed_challenges: Vec<CompletedChallenge>,
     pub colour: (u8, u8, u8),
-    // pub thumb_name: String,
     pub location: (f64, f64),
     pub in_grace_period: bool,
 }
@@ -111,6 +147,7 @@ impl From<truinlag::Team> for Team {
             is_catcher: matches!(value.role, truinlag::TeamRole::Catcher),
             name: value.name,
             id: value.id,
+            picture_id: value.picture_id,
             bounty: value.bounty,
             points: value.points,
             players: value.players.iter().map(|p| p.clone().into()).collect(),
@@ -149,6 +186,7 @@ impl From<truinlag::Challenge> for Challenge {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CompletedChallenge {
+    pub picture_ids: Vec<u64>,
     pub title: String,
     pub description: String,
     pub points: u64,
@@ -160,6 +198,7 @@ pub struct CompletedChallenge {
 impl From<truinlag::CompletedChallenge> for CompletedChallenge {
     fn from(value: truinlag::CompletedChallenge) -> Self {
         Self {
+            picture_ids: value.picture_ids,
             title: value.title,
             description: value.description,
             points: value.points,
