@@ -95,9 +95,9 @@ impl From<truinlag::Event> for Event {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JuhuiPicture {
-    data: Vec<u8>,
-    is_thumbnail: bool,
-    id: u64,
+    pub data: Vec<u8>,
+    pub is_thumbnail: bool,
+    pub id: u64,
 }
 
 #[cfg(feature = "build-binary")]
