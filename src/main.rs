@@ -2,6 +2,7 @@
 
 use futures::prelude::*;
 use std::error::Error;
+use tokio::io::AsyncReadExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
@@ -25,6 +26,7 @@ async fn get_everything(
             .await
             .unwrap(),
         player_id,
+        session,
     )
     .unwrap()
     {
@@ -33,7 +35,7 @@ async fn get_everything(
     }
 }
 
-fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp> {
+fn response_to_to_app(response: ResponseAction, player_id: u64, session_id: u64) -> Option<ToApp> {
     use ResponseAction::*;
     match response {
         Error(err) => {
@@ -65,6 +67,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64) -> Option<ToApp>
                 events: events.into_iter().map(|e| e.into()).collect(),
                 you: player_id,
                 your_team,
+                your_session: session_id,
             }))
         }
         SendGlobalState {
@@ -154,31 +157,31 @@ fn to_server_to_engine_command(
                 location,
             },
         },
-        AttachPeriodPictures { event_id, pictures } => EngineCommand {
-            session: Some(session),
-            action: EngineAction::UploadPeriodPictures {
-                pictures: pictures
-                    .into_iter()
-                    .filter_map(|p| RawPicture::from_bytes(p).ok())
-                    .collect(),
-                team: team_id,
-                period: event_id,
-            },
-        },
-        UploadPlayerPicture(picture) => EngineCommand {
-            session: None,
-            action: EngineAction::UploadPlayerPicture {
-                player_id,
-                picture: RawPicture::from_bytes(picture).unwrap(),
-            },
-        },
-        UploadTeamPicture(picture) => EngineCommand {
-            session: Some(session),
-            action: EngineAction::UploadTeamPicture {
-                team_id,
-                picture: RawPicture::from_bytes(picture).unwrap(),
-            },
-        },
+        // AttachPeriodPictures { event_id, pictures } => EngineCommand {
+        //     session: Some(session),
+        //     action: EngineAction::UploadPeriodPictures {
+        //         pictures: pictures
+        //             .into_iter()
+        //             .filter_map(|p| RawPicture::from_bytes(p).ok())
+        //             .collect(),
+        //         team: team_id,
+        //         period: event_id,
+        //     },
+        // },
+        // UploadPlayerPicture(picture) => EngineCommand {
+        //     session: None,
+        //     action: EngineAction::UploadPlayerPicture {
+        //         player_id,
+        //         picture: RawPicture::from_bytes(picture).unwrap(),
+        //     },
+        // },
+        // UploadTeamPicture(picture) => EngineCommand {
+        //     session: Some(session),
+        //     action: EngineAction::UploadTeamPicture {
+        //         team_id,
+        //         picture: RawPicture::from_bytes(picture).unwrap(),
+        //     },
+        // },
         Complete(id) => EngineCommand {
             session: Some(session),
             action: EngineAction::Complete {
@@ -318,7 +321,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
             match truin_tx_2.send(message).await {
                 Ok(response) => {
                     //println!("({}) received answer from truinlag: {:?}", count, response);
-                    if let Some(response) = response_to_to_app(response, player_id) {
+                    if let Some(response) = response_to_to_app(response, player_id, session) {
                         //println!("({}) parsed message, sending to app: {:?}", count, response);
                         internal_tx_2.send(response)?
                     }
@@ -392,6 +395,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
 #[tokio::main()]
 async fn main() -> std::io::Result<()> {
+    tokio::spawn(receive_picture_connections());
     let listener = TcpListener::bind("192.168.1.125:41314").await?;
     println!("Server listening on port 41314");
 
@@ -405,6 +409,85 @@ async fn main() -> std::io::Result<()> {
             Err(e) => {
                 eprintln!("Connection failed: {}", e);
             }
+        }
+    }
+}
+
+async fn receive_picture_connections() -> std::io::Result<()> {
+    let listener = TcpListener::bind("192.168.1.125:41315").await?;
+    println!("Server listening for pictures on port 41315");
+
+    loop {
+        let accepted = listener.accept().await;
+        match accepted {
+            Ok((stream, addr)) => {
+                println!("A picture client connected from {}", addr);
+                tokio::spawn(handle_pictures(stream));
+            }
+            Err(e) => {
+                eprintln!("Picture connection failed: {}", e);
+            }
+        }
+    }
+}
+
+async fn handle_pictures(mut stream: TcpStream) {
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf).await.unwrap();
+    let pic = bincode::deserialize::<PictureWrapper>(&buf).unwrap();
+    let kind = pic.kind;
+    let pic = RawPicture::from_bytes(pic.picture).unwrap();
+    let (mut truin_tx, _truin_rx) = api::connect(None).await.unwrap();
+    match kind {
+        PictureKind::TeamProfile { session, team } => {
+            println!(
+                "{:?}",
+                truin_tx
+                    .send(EngineCommand {
+                        session: Some(session),
+                        action: EngineAction::UploadTeamPicture {
+                            team_id: team,
+                            picture: pic
+                        }
+                    })
+                    .await
+                    .unwrap()
+            )
+        }
+        PictureKind::PlayerProfile(player_id) => {
+            println!(
+                "{:?}",
+                truin_tx
+                    .send(EngineCommand {
+                        session: None,
+                        action: EngineAction::UploadPlayerPicture {
+                            player_id,
+                            picture: pic
+                        }
+                    })
+                    .await
+                    .unwrap()
+            )
+        }
+        PictureKind::Period {
+            session,
+            team,
+            period_id,
+        } => {
+            println!(
+                "{:?}",
+                truin_tx
+                    .send(EngineCommand {
+                        session: Some(session),
+                        action: EngineAction::UploadPeriodPictures {
+                            pictures: vec![pic],
+                            team,
+                            period: period_id
+                        }
+                    })
+                    .await
+                    .unwrap()
+            )
         }
     }
 }

@@ -1,13 +1,15 @@
 #![warn(clippy::panic_in_result_fn)]
-#![warn(clippy::missing_panics_doc)]
 
 use super::*;
 use bincode;
 use futures::{SinkExt, StreamExt};
 use std::io::{Error, ErrorKind};
-use tokio::net::{
-    tcp::{OwnedReadHalf, OwnedWriteHalf},
-    TcpStream,
+use tokio::{
+    io::AsyncWriteExt,
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream,
+    },
 };
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
@@ -61,4 +63,49 @@ pub async fn connect() -> Result<(TrainlappcommsReceiver, TrainlappcommsSender),
             sender: FramedWrite::new(tx, LengthDelimitedCodec::new()),
         },
     ))
+}
+
+pub async fn send_team_picture(
+    picture: Vec<u8>,
+    session: u64,
+    team: usize,
+) -> Result<(), std::io::Error> {
+    let wrapper = PictureWrapper {
+        kind: PictureKind::TeamProfile { session, team },
+        picture,
+    };
+    send_picture(wrapper).await
+}
+
+pub async fn send_player_picture(picture: Vec<u8>, player: u64) -> Result<(), std::io::Error> {
+    let wrapper = PictureWrapper {
+        kind: PictureKind::PlayerProfile(player),
+        picture,
+    };
+    send_picture(wrapper).await
+}
+
+pub async fn send_period_picture(
+    picture: Vec<u8>,
+    session: u64,
+    team: usize,
+    period_id: usize,
+) -> Result<(), std::io::Error> {
+    let wrapper = PictureWrapper {
+        kind: PictureKind::Period {
+            session,
+            team,
+            period_id,
+        },
+        picture,
+    };
+    send_picture(wrapper).await
+}
+
+async fn send_picture(pic: PictureWrapper) -> Result<(), std::io::Error> {
+    let message = bincode::serialize(&pic).unwrap();
+    let mut connection = TcpStream::connect("trainlag.ch:41315").await?;
+    connection.write_all(&message).await?;
+    connection.shutdown().await?;
+    Ok(())
 }

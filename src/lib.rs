@@ -7,12 +7,6 @@ pub mod api;
 pub enum ToServer {
     Login(String),
     Location((f64, f64)),
-    AttachPeriodPictures {
-        event_id: usize,
-        pictures: Vec<Vec<u8>>,
-    },
-    UploadPlayerPicture(Vec<u8>),
-    UploadTeamPicture(Vec<u8>),
     Complete(usize),
     Catch(usize),
     RequestEverything,
@@ -34,6 +28,7 @@ pub struct Everything {
     pub events: Vec<Event>,
     pub you: u64,
     pub your_team: usize,
+    pub your_session: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -222,4 +217,24 @@ impl From<truinlag::Player> for Player {
             id: value.id,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PictureWrapper {
+    pub kind: PictureKind,
+    pub picture: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum PictureKind {
+    TeamProfile {
+        session: u64,
+        team: usize,
+    },
+    PlayerProfile(u64),
+    Period {
+        session: u64,
+        team: usize,
+        period_id: usize,
+    },
 }
