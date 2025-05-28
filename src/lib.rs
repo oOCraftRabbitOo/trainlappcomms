@@ -63,11 +63,13 @@ pub enum Event {
         caught_id: usize,
         bounty: u64,
         time: u32,
+        picture_ids: Vec<u64>,
     },
     Complete {
         challenge: Challenge,
         completer_id: usize,
         time: u32,
+        picture_ids: Vec<u64>,
     },
 }
 
@@ -79,21 +81,25 @@ impl From<truinlag::Event> for Event {
                 challenge,
                 completer_id,
                 time,
+                picture_ids,
             } => Event::Complete {
                 challenge: challenge.into(),
                 completer_id,
                 time: time.num_seconds_from_midnight(),
+                picture_ids,
             },
             truinlag::Event::Catch {
                 catcher_id,
                 caught_id,
                 bounty,
                 time,
+                picture_ids,
             } => Event::CatchTeam {
                 catcher_id,
                 caught_id,
                 bounty,
                 time: time.num_seconds_from_midnight(),
+                picture_ids,
             },
         }
     }
@@ -192,7 +198,6 @@ pub struct CompletedChallenge {
     pub description: String,
     pub points: u64,
     pub time: chrono::NaiveTime,
-    // pub attached_images: Vec<String>,
 }
 
 #[cfg(feature = "build-binary")]
@@ -212,7 +217,7 @@ impl From<truinlag::CompletedChallenge> for CompletedChallenge {
 pub struct Player {
     pub name: String,
     pub id: u64,
-    // pub thumb_name: String,
+    pub picture_id: Option<u64>,
 }
 
 #[cfg(feature = "build-binary")]
@@ -221,6 +226,7 @@ impl From<truinlag::Player> for Player {
         Self {
             name: value.name,
             id: value.id,
+            picture_id: value.picture_id,
         }
     }
 }
