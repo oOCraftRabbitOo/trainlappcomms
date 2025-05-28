@@ -7,6 +7,12 @@ pub mod api;
 pub enum ToServer {
     Login(String),
     Location((f64, f64)),
+    AttachPeriodPictures {
+        event_id: usize,
+        pictures: Vec<Vec<u8>>,
+    },
+    UploadPlayerPicture(Vec<u8>),
+    UploadTeamPicture(Vec<u8>),
     Complete(usize),
     Catch(usize),
     RequestEverything,

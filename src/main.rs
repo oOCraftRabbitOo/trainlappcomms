@@ -157,31 +157,36 @@ fn to_server_to_engine_command(
                 location,
             },
         },
-        // AttachPeriodPictures { event_id, pictures } => EngineCommand {
-        //     session: Some(session),
-        //     action: EngineAction::UploadPeriodPictures {
-        //         pictures: pictures
-        //             .into_iter()
-        //             .filter_map(|p| RawPicture::from_bytes(p).ok())
-        //             .collect(),
-        //         team: team_id,
-        //         period: event_id,
-        //     },
-        // },
-        // UploadPlayerPicture(picture) => EngineCommand {
-        //     session: None,
-        //     action: EngineAction::UploadPlayerPicture {
-        //         player_id,
-        //         picture: RawPicture::from_bytes(picture).unwrap(),
-        //     },
-        // },
-        // UploadTeamPicture(picture) => EngineCommand {
-        //     session: Some(session),
-        //     action: EngineAction::UploadTeamPicture {
-        //         team_id,
-        //         picture: RawPicture::from_bytes(picture).unwrap(),
-        //     },
-        // },
+        AttachPeriodPictures { event_id, pictures } => {
+            let pictures = tokio::task::block_in_place(|| {
+                pictures
+                    .into_iter()
+                    .filter_map(|p| RawPicture::from_bytes(p).ok())
+                    .collect()
+            });
+            EngineCommand {
+                session: Some(session),
+                action: EngineAction::UploadPeriodPictures {
+                    pictures,
+                    team: team_id,
+                    period: event_id,
+                },
+            }
+        }
+        UploadPlayerPicture(picture) => {
+            let picture = tokio::task::block_in_place(|| RawPicture::from_bytes(picture).unwrap());
+            EngineCommand {
+                session: None,
+                action: EngineAction::UploadPlayerPicture { player_id, picture },
+            }
+        }
+        UploadTeamPicture(picture) => {
+            let picture = tokio::task::block_in_place(|| RawPicture::from_bytes(picture).unwrap());
+            EngineCommand {
+                session: Some(session),
+                action: EngineAction::UploadTeamPicture { team_id, picture },
+            }
+        }
         Complete(id) => EngineCommand {
             session: Some(session),
             action: EngineAction::Complete {
