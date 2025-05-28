@@ -138,85 +138,106 @@ async fn broadcast_to_to_app(
     }
 }
 
+enum EngineCommandConversion {
+    Instant(Box<EngineCommand>),
+    Delayed(std::pin::Pin<Box<dyn Future<Output = EngineCommand> + Send + Sync>>),
+}
+
+impl From<EngineCommand> for EngineCommandConversion {
+    fn from(value: EngineCommand) -> Self {
+        Self::Instant(Box::new(value))
+    }
+}
+
 fn to_server_to_engine_command(
     to_server: ToServer,
     session: u64,
     team_id: usize,
     player_id: u64,
-) -> EngineCommand {
+) -> EngineCommandConversion {
     use ToServer::*;
     match to_server {
         Login(passphrase) => EngineCommand {
             session: None,
             action: EngineAction::GetPlayerByPassphrase(passphrase),
-        },
+        }
+        .into(),
         Location(location) => EngineCommand {
             session: Some(session),
             action: EngineAction::SendLocation {
                 player: player_id,
                 location,
             },
-        },
-        AttachPeriodPictures { event_id, pictures } => {
-            let pictures = tokio::task::block_in_place(|| {
-                pictures
-                    .into_iter()
-                    .filter_map(|p| RawPicture::from_bytes(p).ok())
-                    .collect()
-            });
-            EngineCommand {
-                session: Some(session),
-                action: EngineAction::UploadPeriodPictures {
-                    pictures,
-                    team: team_id,
-                    period: event_id,
-                },
-            }
         }
-        UploadPlayerPicture(picture) => {
+        .into(),
+        AttachPeriodPictures { event_id, pictures } => {
+            EngineCommandConversion::Delayed(Box::pin(async move {
+                let pictures = tokio::task::block_in_place(|| {
+                    pictures
+                        .into_iter()
+                        .filter_map(|p| RawPicture::from_bytes(p).ok())
+                        .collect()
+                });
+                EngineCommand {
+                    session: Some(session),
+                    action: EngineAction::UploadPeriodPictures {
+                        pictures,
+                        team: team_id,
+                        period: event_id,
+                    },
+                }
+            }))
+        }
+        UploadPlayerPicture(picture) => EngineCommandConversion::Delayed(Box::pin(async move {
             let picture = tokio::task::block_in_place(|| RawPicture::from_bytes(picture).unwrap());
             EngineCommand {
                 session: None,
                 action: EngineAction::UploadPlayerPicture { player_id, picture },
             }
-        }
-        UploadTeamPicture(picture) => {
+        })),
+        UploadTeamPicture(picture) => EngineCommandConversion::Delayed(Box::pin(async move {
             let picture = tokio::task::block_in_place(|| RawPicture::from_bytes(picture).unwrap());
             EngineCommand {
                 session: Some(session),
                 action: EngineAction::UploadTeamPicture { team_id, picture },
             }
-        }
+        })),
         Complete(id) => EngineCommand {
             session: Some(session),
             action: EngineAction::Complete {
                 completer: team_id,
                 completed: id,
             },
-        },
+        }
+        .into(),
         Catch(caught) => EngineCommand {
             session: Some(session),
             action: EngineAction::Catch {
                 catcher: team_id,
                 caught,
             },
-        },
+        }
+        .into(),
         Ping(mayssage) => EngineCommand {
             session: None,
             action: EngineAction::Ping(mayssage),
-        },
+        }
+        .into(),
         RequestEverything => EngineCommand {
             session: Some(session),
             action: EngineAction::GetState,
-        },
+        }
+        .into(),
         RequestPictures(pictures) => EngineCommand {
             session: None,
             action: EngineAction::GetPictures(pictures),
-        },
+        }
+        .into(),
         RequestThumbnails(thumbnails) => EngineCommand {
             session: None,
             action: EngineAction::GetThumbnails(thumbnails),
-        },
+        }
+        .into(),
     }
 }
 
@@ -305,8 +326,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 
     async fn app_receiver(
         mut transport_rx: FramedRead<OwnedReadHalf, LengthDelimitedCodec>,
-        mut truin_tx_2: api::SendConnection,
-        internal_tx_2: mpsc::UnboundedSender<ToApp>,
+        truin_sender_tx: mpsc::UnboundedSender<EngineCommand>,
         session: u64,
         team_id: usize,
         player_id: u64,
@@ -317,36 +337,53 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
             let message = message?;
             let message = bincode::deserialize::<trainlappcomms::ToServer>(&message).unwrap();
             //println!("({}) message: {:?}", count, message);
-            let message = to_server_to_engine_command(message, session, team_id, player_id);
-            // println!(
-            //     "({}) parsed message, sending to truinlag: {:?}",
-            //     count,
-            //     message
-            // );
-            match truin_tx_2.send(message).await {
-                Ok(response) => {
-                    //println!("({}) received answer from truinlag: {:?}", count, response);
-                    if let Some(response) = response_to_to_app(response, player_id, session) {
-                        //println!("({}) parsed message, sending to app: {:?}", count, response);
-                        internal_tx_2.send(response)?
-                    }
+            match to_server_to_engine_command(message, session, team_id, player_id) {
+                EngineCommandConversion::Instant(command) => truin_sender_tx.send(*command)?,
+                EngineCommandConversion::Delayed(future) => {
+                    let tx = truin_sender_tx.clone();
+                    tokio::spawn(async move { tx.send(future.await).unwrap() });
                 }
-                Err(_) => break,
-            }
+            };
             count += 1;
         }
         eprintln!("Stream returned None, client probably disconnected");
         Ok(())
     }
 
+    let (truin_sender_tx, truin_sender_rx) = mpsc::unbounded_channel();
+    let app_receiver = app_receiver(transport_rx, truin_sender_tx, session, team_id, player_id);
+
+    async fn truin_sender(
+        mut rx: mpsc::UnboundedReceiver<EngineCommand>,
+        mut truin_tx_2: api::SendConnection,
+        internal_tx_2: mpsc::UnboundedSender<ToApp>,
+        player_id: u64,
+        session: u64,
+    ) -> Result<(), Box<dyn Error>> {
+        while let Some(command) = rx.recv().await {
+            match truin_tx_2.send(command).await {
+                Ok(response) => {
+                    if let Some(response) = response_to_to_app(response, player_id, session) {
+                        internal_tx_2.send(response)?
+                    }
+                }
+                Err(err) => {
+                    eprintln!("error sending to truinlag, stopping truin_sender: {}", err);
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
     let truin_tx_2 = truin_tx.clone();
-    let app_receiver = app_receiver(
-        transport_rx,
+
+    let truin_sender = truin_sender(
+        truin_sender_rx,
         truin_tx_2,
         internal_tx_2,
-        session,
-        team_id,
         player_id,
+        session,
     );
 
     async fn app_sender(
@@ -390,6 +427,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
         res = app_sender => res,
         res = app_receiver => res,
         res = truin_receiver => res,
+        res = truin_sender => res,
     };
     match res {
         Ok(_) => println!("Client disconnected"),
