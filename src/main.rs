@@ -40,7 +40,13 @@ fn response_to_to_app(response: ResponseAction, player_id: u64, session_id: u64)
     match response {
         Error(err) => {
             eprintln!("{}", err);
-            None
+            let err = match err.try_into() {
+                Ok(err) => err,
+                Err(()) => {
+                    return None;
+                }
+            };
+            Some(ToApp::Error(err))
         }
         Team(_) => None,
         Player(_) => None,

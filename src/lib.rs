@@ -53,6 +53,72 @@ pub enum ToApp {
     },
     AddedPeriod(usize),
     Pictures(Vec<JuhuiPicture>),
+    Error(ClientError),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ClientError {
+    NotFound(String),     // Element you were looking for wasn't found
+    TeamExists(String),   // You cannot create a team if one with a similar name already exists
+    AlreadyExists,        // Things that already exist cannot be created
+    GameInProgress,       // Commands like AddTeam cannot be run if a game is in progress
+    GameNotRunning,       // Commands like catch can only be run if a game is in progress
+    AmbiguousData,        // If multiple matching objects exist, e.g. players with passphrase lol
+    InternalError,        // Some sort of internal database error
+    NotImplemented,       // Feature is not yet implemented
+    TeamIsRunner(usize),  // A relevant team is runner, but has to be catcher
+    TeamIsCatcher(usize), // A relevant team is catcher, but has to be runner
+    TeamsTooFar,          // Two relevant teams are too far away from each other
+    BadData(String),
+    TextError(String), // Some other kind of error with a custom text
+    PictureProblem,    // An Image-related error
+}
+
+impl std::fmt::Display for ClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound(ctx) => write!(f, "{} was not found", ctx),
+            Self::TeamExists(team) => write!(f, "Team {} already exists", team),
+            Self::AlreadyExists => write!(f, "Already exists"),
+            Self::GameInProgress => write!(f, "There is already a game in progress"),
+            Self::GameNotRunning => write!(f, "There is no game in progress"),
+            Self::AmbiguousData => write!(f, "Ambiguous data"),
+            Self::InternalError => write!(f, "There was a truinlag-internal error"),
+            Self::NotImplemented => write!(f, "Not yet implemented"),
+            Self::TeamIsRunner(team) => write!(f, "team {} is runner", team),
+            Self::TeamIsCatcher(team) => write!(f, "team {} is catcher", team),
+            Self::TeamsTooFar => write!(f, "the teams are too far away from each other"),
+            Self::BadData(text) => write!(f, "bad data: {}", text),
+            Self::TextError(text) => write!(f, "{}", text),
+            Self::PictureProblem => write!(f, "there was a problem processing an image"),
+        }
+    }
+}
+
+#[cfg(feature = "build-binary")]
+impl TryFrom<truinlag::commands::Error> for ClientError {
+    type Error = ();
+    fn try_from(value: truinlag::commands::Error) -> Result<Self, Self::Error> {
+        use truinlag::commands::Error::*;
+        match value {
+            NoSessionSupplied => Err(()),
+            SessionSupplied => Err(()),
+            NotFound(text) => Ok(Self::NotFound(text)),
+            TeamExists(team) => Ok(Self::TeamExists(team)),
+            AlreadyExists => Ok(Self::AlreadyExists),
+            GameInProgress => Ok(Self::GameInProgress),
+            GameNotRunning => Ok(Self::GameNotRunning),
+            AmbiguousData => Ok(Self::AmbiguousData),
+            InternalError => Ok(Self::InternalError),
+            NotImplemented => Ok(Self::NotImplemented),
+            TeamIsRunner(team) => Ok(Self::TeamIsRunner(team)),
+            TeamIsCatcher(team) => Ok(Self::TeamIsCatcher(team)),
+            TeamsTooFar => Ok(Self::TeamsTooFar),
+            BadData(text) => Ok(Self::BadData(text)),
+            TextError(text) => Ok(Self::TextError(text)),
+            PictureProblem => Ok(Self::PictureProblem),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
