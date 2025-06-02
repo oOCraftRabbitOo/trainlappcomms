@@ -149,15 +149,15 @@ pub struct DetailedLocation {
 }
 
 #[cfg(feature = "build-binary")]
-impl Into<truinlag::DetailedLocation> for DetailedLocation {
-    fn into(self) -> truinlag::DetailedLocation {
+impl From<DetailedLocation> for truinlag::DetailedLocation {
+    fn from(val: DetailedLocation) -> Self {
         truinlag::DetailedLocation {
-            latitude: self.latitude,
-            longitude: self.longitude,
-            accuracy: self.accuracy,
-            heading: self.heading,
-            speed: self.speed,
-            timestamp: self.timestamp,
+            latitude: val.latitude,
+            longitude: val.longitude,
+            accuracy: val.accuracy,
+            heading: val.heading,
+            speed: val.speed,
+            timestamp: val.timestamp,
         }
     }
 }
@@ -184,12 +184,12 @@ pub struct MinimalLocation {
 }
 
 #[cfg(feature = "build-binary")]
-impl Into<truinlag::MinimalLocation> for MinimalLocation {
-    fn into(self) -> truinlag::MinimalLocation {
+impl From<MinimalLocation> for truinlag::MinimalLocation {
+    fn from(val: MinimalLocation) -> Self {
         truinlag::MinimalLocation {
-            latitude: self.latitude,
-            longitude: self.longitude,
-            timestamp: self.timestamp,
+            latitude: val.latitude,
+            longitude: val.longitude,
+            timestamp: val.timestamp,
         }
     }
 }
