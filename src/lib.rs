@@ -1,12 +1,14 @@
-use chrono::Timelike;
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "build-binary")]
+use chrono::Timelike;
 
 pub mod api;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ToServer {
     Login(String),
-    Location((f64, f64)),
+    Location(DetailedLocation),
     AttachPeriodPictures {
         event_id: usize,
         pictures: Vec<Vec<u8>>,
@@ -45,7 +47,10 @@ pub enum ToApp {
     BecomeCatcher(Everything),
     BecomeRunner(Everything),
     BecomeShutDown,
-    Location { team: usize, location: (f64, f64) },
+    Location {
+        team: usize,
+        location: DetailedLocation,
+    },
     AddedPeriod(usize),
     Pictures(Vec<JuhuiPicture>),
 }
@@ -130,6 +135,76 @@ pub enum State {
     Catcher,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetailedLocation {
+    pub latitude: f32,
+    pub longitude: f32,
+    /// accuracy in metres
+    pub accuracy: u16,
+    /// heading in degrees. 0º is north (hopefully)
+    pub heading: f32,
+    /// speed in m/s
+    pub speed: f32,
+    pub timestamp: i64,
+}
+
+#[cfg(feature = "build-binary")]
+impl Into<truinlag::DetailedLocation> for DetailedLocation {
+    fn into(self) -> truinlag::DetailedLocation {
+        truinlag::DetailedLocation {
+            latitude: self.latitude,
+            longitude: self.longitude,
+            accuracy: self.accuracy,
+            heading: self.heading,
+            speed: self.speed,
+            timestamp: self.timestamp,
+        }
+    }
+}
+
+#[cfg(feature = "build-binary")]
+impl From<truinlag::DetailedLocation> for DetailedLocation {
+    fn from(value: truinlag::DetailedLocation) -> Self {
+        Self {
+            latitude: value.latitude,
+            longitude: value.longitude,
+            accuracy: value.accuracy,
+            heading: value.heading,
+            speed: value.speed,
+            timestamp: value.timestamp,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinimalLocation {
+    pub latitude: f32,
+    pub longitude: f32,
+    pub timestamp: i64,
+}
+
+#[cfg(feature = "build-binary")]
+impl Into<truinlag::MinimalLocation> for MinimalLocation {
+    fn into(self) -> truinlag::MinimalLocation {
+        truinlag::MinimalLocation {
+            latitude: self.latitude,
+            longitude: self.longitude,
+            timestamp: self.timestamp,
+        }
+    }
+}
+
+#[cfg(feature = "build-binary")]
+impl From<truinlag::MinimalLocation> for MinimalLocation {
+    fn from(value: truinlag::MinimalLocation) -> Self {
+        Self {
+            latitude: value.latitude,
+            longitude: value.longitude,
+            timestamp: value.timestamp,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Team {
     pub is_catcher: bool,
@@ -142,7 +217,7 @@ pub struct Team {
     pub challenges: Vec<Challenge>,
     pub completed_challenges: Vec<CompletedChallenge>,
     pub colour: (u8, u8, u8),
-    pub location: (f64, f64),
+    pub location: Option<DetailedLocation>,
     pub in_grace_period: bool,
 }
 
@@ -164,9 +239,7 @@ impl From<truinlag::Team> for Team {
                 .iter()
                 .map(|cc| cc.clone().into())
                 .collect(),
-            location: value
-                .location
-                .unwrap_or((47.64984858748811, 8.570193667489143)),
+            location: value.location.map(|l| l.into()),
             in_grace_period: value.in_grace_period,
         }
     }

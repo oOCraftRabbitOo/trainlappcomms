@@ -112,7 +112,10 @@ async fn broadcast_to_to_app(
                 None
             }
         }
-        Location { team, location } => Some(ToApp::Location { team, location }),
+        Location { team, location } => Some(ToApp::Location {
+            team,
+            location: location.into(),
+        }),
         Caught { catcher, caught } => {
             let everything = get_everything(player_id, truin_tx, session).await;
             if catcher.id == team_id {
@@ -167,7 +170,7 @@ fn to_server_to_engine_command(
             session: Some(session),
             action: EngineAction::SendLocation {
                 player: player_id,
-                location,
+                location: location.into(),
             },
         }
         .into(),
