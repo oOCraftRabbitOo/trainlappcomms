@@ -72,6 +72,7 @@ pub enum ClientError {
     BadData(String),
     TextError(String), // Some other kind of error with a custom text
     PictureProblem,    // An Image-related error
+    TooRapid,          // When requests are sent too rapidly
 }
 
 impl std::fmt::Display for ClientError {
@@ -91,6 +92,7 @@ impl std::fmt::Display for ClientError {
             Self::BadData(text) => write!(f, "bad data: {}", text),
             Self::TextError(text) => write!(f, "{}", text),
             Self::PictureProblem => write!(f, "there was a problem processing an image"),
+            Self::TooRapid => write!(f, "not enough time has passed since the last request"),
         }
     }
 }
@@ -117,6 +119,7 @@ impl TryFrom<truinlag::commands::Error> for ClientError {
             BadData(text) => Ok(Self::BadData(text)),
             TextError(text) => Ok(Self::TextError(text)),
             PictureProblem => Ok(Self::PictureProblem),
+            TooRapid => Ok(Self::TooRapid),
         }
     }
 }
