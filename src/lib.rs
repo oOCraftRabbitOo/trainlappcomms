@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "build-binary")]
@@ -21,6 +23,10 @@ pub enum ToServer {
     Ping(Option<String>),
     RequestPictures(Vec<u64>),
     RequestThumbnails(Vec<u64>),
+    RequestPastLocations {
+        of_past_seconds: Option<NonZeroU32>,
+        team_id: usize,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -54,6 +60,10 @@ pub enum ToApp {
     AddedPeriod(usize),
     Pictures(Vec<JuhuiPicture>),
     Error(ClientError),
+    SendPastLocations {
+        team: usize,
+        locations: Vec<MinimalLocation>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -90,6 +90,10 @@ fn response_to_to_app(response: ResponseAction, player_id: u64, session_id: u64)
             pics.into_iter().map(|p| p.into()).collect(),
         )),
         SendLocations(_) => None,
+        SendPastLocations { team_id, locations } => Some(ToApp::SendPastLocations {
+            team: team_id,
+            locations: locations.into_iter().map(|l| l.into()).collect(),
+        }),
     }
 }
 
@@ -254,6 +258,17 @@ fn to_server_to_engine_command(
         RequestThumbnails(thumbnails) => EngineCommand {
             session: None,
             action: EngineAction::GetThumbnails(thumbnails),
+        }
+        .into(),
+        RequestPastLocations {
+            of_past_seconds,
+            team_id,
+        } => EngineCommand {
+            session: Some(session),
+            action: EngineAction::GetPastLocations {
+                of_past_seconds,
+                team_id,
+            },
         }
         .into(),
     }
