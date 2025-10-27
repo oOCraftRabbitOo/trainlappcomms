@@ -463,7 +463,12 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
 #[tokio::main()]
 async fn main() -> std::io::Result<()> {
     tokio::spawn(receive_picture_connections());
-    let listener = TcpListener::bind("192.168.1.125:41314").await?;
+    let listener = TcpListener::bind(if cfg!(debug_assertions) {
+        "192.168.1.125:42314"
+    } else {
+        "192.168.1.125:41314"
+    })
+    .await?;
     println!("Server listening on port 41314");
 
     loop {
@@ -481,7 +486,12 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn receive_picture_connections() -> std::io::Result<()> {
-    let listener = TcpListener::bind("192.168.1.125:41315").await?;
+    let listener = TcpListener::bind(if cfg!(debug_assertions) {
+        "192.168.1.125:42315"
+    } else {
+        "192.168.1.125:41315"
+    })
+    .await?;
     println!("Server listening for pictures on port 41315");
 
     loop {

@@ -29,7 +29,7 @@ impl TrainlappcommsSender {
             .await
         {
             Ok(_) => Ok(()),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            Err(e) => Err(Error::other(e)),
         }
     }
 }
@@ -54,7 +54,13 @@ impl TrainlappcommsReceiver {
 }
 
 pub async fn connect() -> Result<(TrainlappcommsReceiver, TrainlappcommsSender), Error> {
-    let (rx, tx) = TcpStream::connect("trainlag.ch:41314").await?.into_split();
+    let (rx, tx) = TcpStream::connect(if cfg!(debug_assertions) {
+        "trainlag.ch:42314"
+    } else {
+        "trainlag.ch:41314"
+    })
+    .await?
+    .into_split();
     Ok((
         TrainlappcommsReceiver {
             receiver: FramedRead::new(rx, LengthDelimitedCodec::new()),
@@ -104,7 +110,12 @@ pub async fn send_period_picture(
 
 async fn send_picture(pic: PictureWrapper) -> Result<(), std::io::Error> {
     let message = bincode::serialize(&pic).unwrap();
-    let mut connection = TcpStream::connect("trainlag.ch:41315").await?;
+    let mut connection = TcpStream::connect(if cfg!(debug_assertions) {
+        "trainlag.ch:42315"
+    } else {
+        "trainlag.ch:41315"
+    })
+    .await?;
     connection.write_all(&message).await?;
     connection.shutdown().await?;
     Ok(())
