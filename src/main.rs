@@ -264,7 +264,13 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let mut transport_rx = FramedRead::new(tcp_rx, LengthDelimitedCodec::new());
     let mut transport_tx = FramedWrite::new(tcp_tx, LengthDelimitedCodec::new());
 
-    let (mut truin_tx, truin_rx) = api::connect(None).await?;
+    let socket = format!(
+        "/tmp/truinsocket_{}{}",
+        if cfg!(debug_assertions) { "dev_" } else { "" },
+        env!("CARGO_PKG_VERSION")
+    );
+
+    let (mut truin_tx, truin_rx) = api::connect(Some(&socket)).await?;
     let (internal_tx, internal_rx) = mpsc::unbounded_channel();
     let internal_tx_2 = internal_tx.clone();
 
