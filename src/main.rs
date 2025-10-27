@@ -280,7 +280,7 @@ async fn handle_client(stream: TcpStream) -> Result<(), api::error::Error> {
     let mut transport_tx = FramedWrite::new(tcp_tx, LengthDelimitedCodec::new());
 
     let socket = format!(
-        "truinsocket_{}{}",
+        "/tmp/truinsocket_{}{}",
         if cfg!(debug_assertions) { "dev_" } else { "" },
         env!("CARGO_PKG_VERSION")
     );
