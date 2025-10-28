@@ -148,12 +148,14 @@ pub enum Event {
         bounty: u64,
         time: u32,
         picture_ids: Vec<u64>,
+        location: MinimalLocation,
     },
     Complete {
         challenge: Challenge,
         completer_id: usize,
         time: u32,
         picture_ids: Vec<u64>,
+        location: MinimalLocation,
     },
 }
 
@@ -166,11 +168,13 @@ impl From<truinlag::Event> for Event {
                 completer_id,
                 time,
                 picture_ids,
+                location,
             } => Event::Complete {
                 challenge: challenge.into(),
                 completer_id,
                 time: time.num_seconds_from_midnight(),
                 picture_ids,
+                location: location.into(),
             },
             truinlag::Event::Catch {
                 catcher_id,
@@ -178,12 +182,14 @@ impl From<truinlag::Event> for Event {
                 bounty,
                 time,
                 picture_ids,
+                location,
             } => Event::CatchTeam {
                 catcher_id,
                 caught_id,
                 bounty,
                 time: time.num_seconds_from_midnight(),
                 picture_ids,
+                location: location.into(),
             },
         }
     }
