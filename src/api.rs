@@ -54,11 +54,13 @@ impl TrainlappcommsReceiver {
 }
 
 pub async fn connect() -> Result<(TrainlappcommsReceiver, TrainlappcommsSender), Error> {
-    let (rx, tx) = TcpStream::connect(if cfg!(debug_assertions) {
-        "trainlag.ch:42314"
-    } else {
-        "trainlag.ch:41314"
-    })
+    let (rx, tx) = TcpStream::connect(
+        if cfg!(debug_assertions) || option_env!("TL_DEBUG").is_some() {
+            "trainlag.ch:42314"
+        } else {
+            "trainlag.ch:41314"
+        },
+    )
     .await?
     .into_split();
     Ok((
