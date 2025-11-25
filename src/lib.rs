@@ -52,7 +52,7 @@ pub enum ToApp {
     Ping(Option<String>),
     BecomeCatcher(Everything),
     BecomeRunner(Everything),
-    BecomeNoGameRunning,
+    BecomeNoGameRunning(Everything),
     BecomeShutDown,
     Location {
         team: usize,

@@ -147,7 +147,9 @@ async fn broadcast_to_to_app(
             }
         }
         Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
-        Ended => Some(ToApp::BecomeNoGameRunning),
+        Ended => Some(ToApp::BecomeNoGameRunning(
+            get_everything(player_id, truin_tx, session).await,
+        )),
         Started { teams, game: _ } => match teams[team_id].role {
             TeamRole::Runner => Some(ToApp::BecomeRunner(
                 get_everything(player_id, truin_tx, session).await,
