@@ -56,7 +56,7 @@ pub enum ToApp {
     Everything(Everything),
     LoginSuccessful(bool),
     Ping(Option<String>),
-    BecomeCatcher(Everything),
+    BecomeCatcher(Everything), // I'm too lazy for notifications here
     BecomeRunner(Everything),
     ChallengeCompleted(Event, Everything),
     BecomeNoGameRunning(Everything),
