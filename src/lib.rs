@@ -52,6 +52,7 @@ pub enum ToApp {
     Ping(Option<String>),
     BecomeCatcher(Everything),
     BecomeRunner(Everything),
+    BecomeNoGameRunning,
     BecomeShutDown,
     Location {
         team: usize,
@@ -213,7 +214,7 @@ impl From<truinlag::Picture> for JuhuiPicture {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum State {
     GameNotRunning,
     Runner,

@@ -147,7 +147,7 @@ async fn broadcast_to_to_app(
             }
         }
         Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
-        Ended => Some(ToApp::BecomeShutDown),
+        Ended => Some(ToApp::BecomeNoGameRunning),
         Started { teams, game: _ } => match teams[team_id].role {
             TeamRole::Runner => Some(ToApp::BecomeRunner(
                 get_everything(player_id, truin_tx, session).await,
@@ -156,7 +156,51 @@ async fn broadcast_to_to_app(
                 get_everything(player_id, truin_tx, session).await,
             )),
         },
-        _ => todo!(),
+        TeamLeftGracePeriod(_) => Some(ToApp::Everything(
+            get_everything(player_id, truin_tx, session).await,
+        )),
+        PlayerChangedSession {
+            player,
+            from_session: _,
+            to_session: _,
+        } => {
+            if player.id == player_id {
+                panic!(
+                    "received signal from truinlag \
+                    indicating a player session change, \
+                    panicking and hoping for reconnect :)"
+                )
+            } else {
+                None
+            }
+        }
+        PlayerChangedTeam {
+            session: _,
+            player,
+            from_team: _,
+            to_team: _,
+        } => {
+            if player == player_id {
+                panic!(
+                    "received signal from truinlag \
+                    indicating a player team change, \
+                    panicking and hoping for reconnect :)"
+                )
+            } else {
+                None
+            }
+        }
+        PlayerDeleted(player) => {
+            if player.id == player_id {
+                panic!(
+                    "received signal from truinlag \
+                    indicating that the player has been deleted, \
+                    panicking and shutting down"
+                )
+            } else {
+                None
+            }
+        }
     }
 }
 
