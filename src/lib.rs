@@ -317,6 +317,7 @@ pub struct Team {
     pub colour: (u8, u8, u8),
     pub location: Option<DetailedLocation>,
     pub in_grace_period: bool,
+    pub period_id: usize,
 }
 
 #[cfg(feature = "build-binary")]
@@ -339,6 +340,7 @@ impl From<truinlag::Team> for Team {
                 .collect(),
             location: value.location.map(|l| l.into()),
             in_grace_period: value.in_grace_period,
+            period_id: value.period_id,
         }
     }
 }
