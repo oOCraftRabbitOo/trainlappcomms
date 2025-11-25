@@ -130,38 +130,64 @@ async fn broadcast_to_to_app(
         Caught { catcher, caught } => {
             let everything = get_everything(player_id, truin_tx, session).await;
             if catcher.id == team_id {
-                return Some(ToApp::BecomeRunner(everything));
+                Some(ToApp::BecomeRunner(everything))
             } else if caught.id == team_id {
-                return Some(ToApp::BecomeCatcher(everything));
-            };
-            Some(ToApp::Everything(everything))
+                Some(ToApp::BecomeCatcher(everything))
+            } else {
+                Some(ToApp::EventOccurred(
+                    Event::CatchTeam {
+                        catcher_id: catcher.id,
+                        caught_id: caught.id,
+                        bounty: 0,
+                        time: 0,
+                        picture_ids: Vec::new(),
+                        location: MinimalLocation {
+                            latitude: 0_f32,
+                            longitude: 0_f32,
+                            timestamp: 0,
+                        },
+                    },
+                    everything,
+                ))
+            }
         }
         Completed {
             completer,
-            completed: _,
+            completed,
         } => {
             let everything = get_everything(player_id, truin_tx, session).await;
+            let event = Event::Complete {
+                challenge: completed.into(),
+                completer_id: completer.id,
+                time: 0,
+                picture_ids: Vec::new(),
+                location: MinimalLocation {
+                    latitude: 0_f32,
+                    longitude: 0_f32,
+                    timestamp: 0,
+                },
+            };
             if completer.id == team_id {
-                Some(ToApp::BecomeRunner(everything))
+                Some(ToApp::ChallengeCompleted(event, everything))
             } else {
-                Some(ToApp::Everything(everything))
+                Some(ToApp::EventOccurred(event, everything))
             }
         }
         Pinged(mayssage) => Some(ToApp::Ping(mayssage)),
         Ended => Some(ToApp::BecomeNoGameRunning(
             get_everything(player_id, truin_tx, session).await,
         )),
-        Started { teams, game: _ } => match teams[team_id].role {
-            TeamRole::Runner => Some(ToApp::BecomeRunner(
-                get_everything(player_id, truin_tx, session).await,
-            )),
-            TeamRole::Catcher => Some(ToApp::BecomeCatcher(
-                get_everything(player_id, truin_tx, session).await,
-            )),
-        },
-        TeamLeftGracePeriod(_) => Some(ToApp::Everything(
+        Started { teams: _, game: _ } => Some(ToApp::GameStarted(
             get_everything(player_id, truin_tx, session).await,
         )),
+        TeamLeftGracePeriod(team) => {
+            let everything = get_everything(player_id, truin_tx, session).await;
+            if team.id == team_id {
+                Some(ToApp::YouLeftGracePeriod(everything))
+            } else {
+                Some(ToApp::Everything(everything))
+            }
+        }
         PlayerChangedSession {
             player,
             from_session: _,

@@ -58,6 +58,7 @@ pub enum ToApp {
     Ping(Option<String>),
     BecomeCatcher(Everything),
     BecomeRunner(Everything),
+    ChallengeCompleted(Event, Everything),
     BecomeNoGameRunning(Everything),
     BecomeShutDown,
     Location {
@@ -71,6 +72,9 @@ pub enum ToApp {
         team: usize,
         locations: Vec<MinimalLocation>,
     },
+    GameStarted(Everything),
+    EventOccurred(Event, Everything),
+    YouLeftGracePeriod(Everything),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
