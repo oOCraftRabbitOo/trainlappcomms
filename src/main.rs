@@ -94,6 +94,7 @@ fn response_to_to_app(response: ResponseAction, player_id: u64, session_id: u64)
             team: team_id,
             locations: locations.into_iter().map(|l| l.into()).collect(),
         }),
+        SendGameConfig(_) => None,
     }
 }
 
@@ -270,19 +271,27 @@ fn to_server_to_engine_command(
                 action: EngineAction::UploadTeamPicture { team_id, picture },
             }
         })),
-        Complete(id) => EngineCommand {
+        Complete {
+            completed_id,
+            period_id,
+        } => EngineCommand {
             session: Some(session),
             action: EngineAction::Complete {
                 completer: team_id,
-                completed: id,
+                completed: completed_id,
+                period_id,
             },
         }
         .into(),
-        Catch(caught) => EngineCommand {
+        Catch {
+            caught_id,
+            period_id,
+        } => EngineCommand {
             session: Some(session),
             action: EngineAction::Catch {
                 catcher: team_id,
-                caught,
+                caught: caught_id,
+                period_id,
             },
         }
         .into(),

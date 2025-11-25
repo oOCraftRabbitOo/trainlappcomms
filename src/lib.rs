@@ -17,8 +17,14 @@ pub enum ToServer {
     },
     UploadPlayerPicture(Vec<u8>),
     UploadTeamPicture(Vec<u8>),
-    Complete(usize),
-    Catch(usize),
+    Complete {
+        completed_id: usize,
+        period_id: usize,
+    },
+    Catch {
+        caught_id: usize,
+        period_id: usize,
+    },
     RequestEverything,
     Ping(Option<String>),
     RequestPictures(Vec<u64>),
@@ -84,6 +90,7 @@ pub enum ClientError {
     TextError(String), // Some other kind of error with a custom text
     PictureProblem,    // An Image-related error
     TooRapid,          // When requests are sent too rapidly
+    TooFewChallenges,  // When there are too few challenges to start a game
 }
 
 impl std::fmt::Display for ClientError {
@@ -104,6 +111,10 @@ impl std::fmt::Display for ClientError {
             Self::TextError(text) => write!(f, "{}", text),
             Self::PictureProblem => write!(f, "there was a problem processing an image"),
             Self::TooRapid => write!(f, "not enough time has passed since the last request"),
+            Self::TooFewChallenges => write!(
+                f,
+                "there are not enough challenges to start a game in the challenge db"
+            ),
         }
     }
 }
@@ -131,6 +142,7 @@ impl TryFrom<truinlag::commands::Error> for ClientError {
             TextError(text) => Ok(Self::TextError(text)),
             PictureProblem => Ok(Self::PictureProblem),
             TooRapid => Ok(Self::TooRapid),
+            TooFewChallenges => Ok(Self::TooFewChallenges),
         }
     }
 }

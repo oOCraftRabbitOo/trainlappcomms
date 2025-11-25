@@ -1583,7 +1583,7 @@ dependencies = [
 [[package]]
 name = "truinlag"
 version = "0.0.2"
-source = "git+https://github.com/oocraftrabbitoo/truinlag#cc041ec2ecc5b872fd7adb4c8bf9e0ccf4246dc5"
+source = "git+https://github.com/oocraftrabbitoo/truinlag#cd8819138b749d4765c80807d42cf61568d051a1"
 dependencies = [
  "async-broadcast",
  "bincode",
